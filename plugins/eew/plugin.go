@@ -739,8 +739,10 @@ func (p *EEWPlugin) processEEWEvent(bot bot.Bot, event EEWEvent) {
 		sb.WriteString(fmt.Sprintf("预估烈度: %.1f 度 (%s)\n", localIntensity, GetIntensityDesc(localIntensity)))
 	}
 	if p.cfg.ShowEventID && event.EventID != "" {
-		sb.WriteString(fmt.Sprintf("事件ID: %s", event.EventID))
+		sb.WriteString(fmt.Sprintf("事件ID: %s\n", event.EventID))
 	}
+	sb.WriteString("--------------------------------\n")
+	sb.WriteString("注意安全，请勿惊慌\n")
 
 	msgText := strings.TrimSpace(sb.String())
 
