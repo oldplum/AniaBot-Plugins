@@ -44,7 +44,7 @@ func NewPlugin() *EEWPlugin {
 			Order:     plugin.LevelNormal,
 			ShowFor:   plugininfo.ShowForGroup | plugininfo.ShowForFriend,
 			Author:    "oldplum",
-			Version:   "1.2.1",
+			Version:   "1.3.1",
 		},
 	}
 }
