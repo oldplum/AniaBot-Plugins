@@ -1,0 +1,15 @@
+{
+  "id": "rss",
+  "name": "RSS订阅",
+  "description": "把 RSS/Atom 源订阅到群聊或私聊，后台定时轮询，发现新文章自动推送标题、摘要与链接，支持订阅管理、手动检查与失效源自动清理",
+  "author": "jeanhua",
+  "version": "1.0.0",
+  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
+  "tags": ["订阅", "RSS", "资讯", "推送"],
+  "api_version": 1,
+  "min_framework": "4.6.0",
+  "entry": {
+    "constructor": "NewPlugin"
+  },
+  "icon": ""
+}

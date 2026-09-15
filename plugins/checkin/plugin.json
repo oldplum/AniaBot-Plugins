@@ -1,0 +1,15 @@
+{
+  "id": "checkin",
+  "name": "签到打卡",
+  "description": "每日签到赚积分：随机积分+今日运势、连续签到加成、积分查询与排行榜，数据持久化重启不丢",
+  "author": "jeanhua",
+  "version": "1.0.0",
+  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
+  "tags": ["签到", "积分", "娱乐", "群聊"],
+  "api_version": 1,
+  "min_framework": "4.6.0",
+  "entry": {
+    "constructor": "NewPlugin"
+  },
+  "icon": ""
+}

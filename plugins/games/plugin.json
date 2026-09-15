@@ -1,0 +1,15 @@
+{
+  "id": "games",
+  "name": "群小游戏",
+  "description": "群聊多人互动游戏合集：猜数字（自动缩范围）、24 点抢答（出题保证有解、表达式分数精确验算、胜场排行榜）、随机选择帮你做决定",
+  "author": "jeanhua",
+  "version": "1.0.0",
+  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
+  "tags": ["游戏", "娱乐", "互动", "群聊"],
+  "api_version": 1,
+  "min_framework": "4.6.0",
+  "entry": {
+    "constructor": "NewPlugin"
+  },
+  "icon": ""
+}

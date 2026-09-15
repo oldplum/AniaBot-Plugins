@@ -1,0 +1,15 @@
+{
+  "id": "reminder",
+  "name": "提醒事项",
+  "description": "在群聊或私聊设定一次性/循环提醒（30分钟后、每天8:30、每周一 18:00、明天 9点等中文时间），到点机器人主动 @ 提醒，数据持久化重启不丢",
+  "author": "jeanhua",
+  "version": "1.0.0",
+  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
+  "tags": ["提醒", "定时任务", "效率", "工具"],
+  "api_version": 1,
+  "min_framework": "4.6.0",
+  "entry": {
+    "constructor": "NewPlugin"
+  },
+  "icon": ""
+}

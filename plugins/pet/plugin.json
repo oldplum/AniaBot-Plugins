@@ -1,0 +1,15 @@
+{
+  "id": "pet",
+  "name": "电子宠物",
+  "description": "领养一只专属电子宠物：喂食、逗宠、看状态，饱食度与心情随时间衰减，互动涨成长值升级，还有随机趣味事件",
+  "author": "jeanhua",
+  "version": "1.0.0",
+  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
+  "tags": ["宠物", "养成", "娱乐", "互动"],
+  "api_version": 1,
+  "min_framework": "4.6.0",
+  "entry": {
+    "constructor": "NewPlugin"
+  },
+  "icon": ""
+}

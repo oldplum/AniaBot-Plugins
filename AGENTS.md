@@ -186,7 +186,7 @@ if qb, ok := b.(bot.QQ); ok {
 ```
 
 `bot.QQ` 还有：`SendFriendForwardMsg / SetMsgEmojiLike / SendGroupSign /
-GetForwardMsg / GetGroupUserInfo / GetFriendList / GetGroupList / GetAIChatacter / GetPrivateFileURL`。
+GetForwardMsg / GetGroupUserInfo / GetGroupMemberList / GetFriendList / GetGroupList / GetAIChatacter / GetPrivateFileURL`。
 原则：**用到 QQ 专属能力 → `plugin.json` 的 `platforms` 写 `["qq"]`**（`antiwithdrawal` 范例）；
 **只用 5.1 通用能力 → `platforms` 全平台**（`dicegirl`/`eew` 范例）。
 
