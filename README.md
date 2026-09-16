@@ -45,7 +45,7 @@ index.json        # 聚合索引（由 scripts/build-index.sh 生成，CI 在合
 | [reminder](plugins/reminder) | 提醒事项 | jeanhua | 1.0.0 | 在群聊或私聊设定一次性/循环提醒（30分钟后、每天8:30、每周一 18:00、明天 9点等中文时间），到点机器人主动 @ 提醒，数据持久化重启不丢 |
 | [rss](plugins/rss) | RSS订阅 | jeanhua | 1.0.0 | 把 RSS/Atom 源订阅到群聊或私聊，后台定时轮询，发现新文章自动推送标题、摘要与链接，支持订阅管理、手动检查与失效源自动清理 |
 | [setu](plugins/setu) | Pixiv涩图 | jeanhua | 1.1.2 | 群聊@我或私聊发送 /setu 随机 Pixiv 涩图，支持 tag 搜索、多连发、R18 开关与正则放行名单 |
-| [today-partner](plugins/today-partner) | 今日对象 | jeanhua | 1.1.0 | QQ 群娱乐插件：/今日对象(老婆/老公) 从群成员里随机抽今日对象，/强娶 @群成员 直接指定；支持每日抽取次数（1-5）与强娶冷却配置 |
+| [today-partner](plugins/today-partner) | 今日对象 | jeanhua | 1.2.0 | QQ 群娱乐插件：/今日对象(老婆/老公) 从群成员里随机抽今日对象（双向配对：抽到过你的人会优先分配给你），/强娶 @群成员 直接指定；支持每日抽取次数（1-5）与强娶冷却配置 |
 | [whitelist](plugins/whitelist) | 白名单管理 | disillusion | 1.0.0 | 管理员用 /wl 命令管理黑白名单：增删查群聊/私聊名单、切换名单模式，改动即时生效；与内置「请求拦截插件」共用名单 |
 <!-- PLUGIN-LIST:END -->
 

@@ -2,6 +2,7 @@
 //
 //   - /今日老婆、/今日老公、/今日对象：从群成员里随机抽一个今日对象，
 //     每日抽取次数可配置（1-5）；次数大于 1 时，后面的抽取会带上之前抽到的一起展示；
+//     双向配对：若今天已有人先抽到自己，则直接分配最早抽到自己的那位，不做随机。
 //   - /强娶 @群成员：直接指定今日对象，有时间冷却，冷却时长可配置。
 //
 // 候选成员经 bot.QQ 的 GetGroupMemberList（NapCat get_group_member_list）获取全量群成员。
@@ -11,6 +12,7 @@ package todaypartner
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -52,7 +54,7 @@ func NewPlugin() *TodayPartnerPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup
 	p.Author = "jeanhua"
-	p.Version = "1.1.0"
+	p.Version = "1.2.0"
 	p.Order = plugin.LevelNormal
 	p.Platforms = []string{"qq"}
 	return p
@@ -117,6 +119,20 @@ func (p *TodayPartnerPlugin) cmdDraw(ctx context.Context, b bot.Bot, cmdName str
 	}
 
 	drawn := st.drawnSet()
+
+	// 双向配对：今天若已有人先抽到自己，直接把那位"有缘人"分配给自己，不做随机
+	if pt, ok := p.findMutualPartner(ctx, b, msg.GroupId, msg.Sender.UserId, today, drawn); ok {
+		st.Used++
+		st.Partners = append(st.Partners, pt)
+		if !p.store.Set(ctx, key, &st) {
+			p.replyText(b, msg.GroupId, msg.Sender.UserId, "保存抽取数据失败，请稍后再试")
+			return
+		}
+		p.sendDrawResult(b, msg.GroupId, kind, st.Partners, st.remaining(maxDraws),
+			fmt.Sprintf("💕【%s】先抽到了你，月老把你们绑在一起啦～", pt.Name))
+		return
+	}
+
 	candidates := p.collectCandidates(b, msg, drawn)
 	if len(candidates) == 0 {
 		if len(drawn) > 0 {
@@ -133,6 +149,7 @@ func (p *TodayPartnerPlugin) cmdDraw(ctx context.Context, b bot.Bot, cmdName str
 		return
 	}
 
+	picked.At = time.Now().Unix()
 	st.Used++
 	st.Partners = append(st.Partners, picked)
 	if !p.store.Set(ctx, key, &st) {
@@ -153,6 +170,29 @@ func (p *TodayPartnerPlugin) collectCandidates(b bot.Bot, msg message.Message, d
 		return nil
 	}
 	return filterCandidates(*members, msg.SelfId, msg.Sender.UserId, drawn)
+}
+
+// findMutualPartner 遍历群内所有人的抽取状态，找最早抽到 sender 的人（见 pickMutual），
+// 并查出其展示名。只统计今天的状态，跨天旧状态不参与配对。
+func (p *TodayPartnerPlugin) findMutualPartner(ctx context.Context, b bot.Bot, group, sender message.QID, today string, drawn map[string]bool) (partner, bool) {
+	keys, err := p.store.Keys(ctx, drawKeyPrefix(group))
+	if err != nil || len(keys) == 0 {
+		return partner{}, false
+	}
+	sort.Strings(keys)
+	states := make([]memberState, 0, len(keys))
+	for _, k := range keys {
+		var s drawState
+		if !p.store.Get(ctx, k, &s) || s.Date != today {
+			continue
+		}
+		states = append(states, memberState{Owner: ownerOfDrawKey(k), State: s})
+	}
+	qq, at, ok := pickMutual(sender.TrimQQPrefix(), states, drawn)
+	if !ok {
+		return partner{}, false
+	}
+	return partner{QQ: qq, Name: p.resolveName(b, group, message.FromString(qq)), At: at}, true
 }
 
 // sendDrawResult 发送抽取结果：历次对象一起展示，每人一段昵称 + 头像。
@@ -247,9 +287,14 @@ func (p *TodayPartnerPlugin) replyText(b bot.Bot, group, user message.QID, text 
 	}
 }
 
+// drawKeyPrefix 某个群全部抽取状态的存储键前缀（枚举群内状态用）。
+func drawKeyPrefix(group message.QID) string {
+	return "d:" + group.TrimQQPrefix() + ":"
+}
+
 // drawKey 抽取状态的存储键（群 + 用户维度，当日状态覆盖写，跨天自动重置）。
 func drawKey(group, user message.QID) string {
-	return "d:" + group.TrimQQPrefix() + ":" + user.TrimQQPrefix()
+	return drawKeyPrefix(group) + user.TrimQQPrefix()
 }
 
 // marryKey 强娶冷却的存储键。
