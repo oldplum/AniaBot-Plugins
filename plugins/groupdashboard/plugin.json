@@ -1,0 +1,15 @@
+{
+  "id": "groupdashboard",
+  "name": "群聊看板",
+  "description": "群消息达到阈值后自动用 AI 生成「群聊日常分析看板」：话题焦点、群友画像、今日金句、氛围报告，渲染成精美长图发到群，支持薄荷看板/杂志海报/暗夜霓虹三种风格",
+  "author": "jeanhua",
+  "version": "1.0.0",
+  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
+  "tags": ["群聊", "AI", "看板"],
+  "api_version": 1,
+  "min_framework": "4.6.0",
+  "entry": {
+    "constructor": "NewPlugin"
+  },
+  "icon": ""
+}

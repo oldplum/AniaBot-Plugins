@@ -37,6 +37,7 @@ index.json        # 聚合索引（由 scripts/build-index.sh 生成，CI 在合
 | [dicegirl](plugins/dicegirl) | 骰娘 | jeanhua | 1.0.0 | TRPG 骰娘：支持骰子表达式 /r、COC 7e 技能检定 /ra、理智检定 /sc 与今日人品 /jrrp，可直接发 .r 等裸指令 |
 | [eew](plugins/eew) | 地震预警与气象速报 | oldplum | 1.3.1 | 实时推送全国地震预警与速报，支持震中距与本地烈度估算、定时天气排行播报及 Cloudflare 自动降级 |
 | [games](plugins/games) | 群小游戏 | jeanhua | 1.0.0 | 群聊多人互动游戏合集：猜数字（自动缩范围）、24 点抢答（出题保证有解、表达式分数精确验算、胜场排行榜）、随机选择帮你做决定 |
+| [groupdashboard](plugins/groupdashboard) | 群聊看板 | jeanhua | 1.0.0 | 群消息达到阈值后自动用 AI 生成「群聊日常分析看板」：话题焦点、群友画像、今日金句、氛围报告，渲染成精美长图发到群，支持薄荷看板/杂志海报/暗夜霓虹三种风格 |
 | [groupdigest](plugins/groupdigest) | 群刊 | jeanhua | 1.3.1 | 群消息达到阈值后自动用 AI 生成群刊，可发送 Markdown 文件或渲染图片 |
 | [ledger](plugins/ledger) | 群记账本 | jeanhua | 1.0.0 | 为每个群聊维护一本共享账本（私聊为个人账本）：/记账 记收支、/账单 看月度汇总、/流水 看明细、/删账 按流水号删除、/清账 清空本月，金额以分记账无浮点误差 |
 | [music](plugins/music) | 音乐点歌 | jeanhua | 1.4.0 | 群聊@我或私聊 /点歌 关键词 搜歌点播，下载音频以文件发送，支持按钮平台点序号直接下载与翻页、多音源、歌词查询与 QQ 音乐卡片（数据来自 GD音乐台开放 API） |
