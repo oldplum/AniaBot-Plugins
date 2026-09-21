@@ -212,6 +212,74 @@ func TestKindOf(t *testing.T) {
 	}
 }
 
+func TestPickMutual(t *testing.T) {
+	// 基础状态：1 抽到 2（At=200），3 也抽到 2（At=100，更早），2 自己抽到 4，5 抽到 6
+	base := []memberState{
+		{Owner: "1", State: drawState{Date: "2026-09-16", Partners: []partner{{QQ: "2", Name: "乙", At: 200}}}},
+		{Owner: "2", State: drawState{Date: "2026-09-16", Partners: []partner{{QQ: "4", Name: "丁", At: 50}}}},
+		{Owner: "3", State: drawState{Date: "2026-09-16", Partners: []partner{{QQ: "2", Name: "乙", At: 100}}}},
+		{Owner: "5", State: drawState{Date: "2026-09-16", Partners: []partner{{QQ: "6", Name: "己", At: 300}}}},
+	}
+
+	// 2 抽取：1 和 3 都抽到过 2，取最早抽到他的 3（At=100）
+	if qq, at, ok := pickMutual("2", base, nil); !ok || qq != "3" || at != 100 {
+		t.Errorf("多人抽到时应取最早的: got (%q, %d, %v), 期望 (3, 100, true)", qq, at, ok)
+	}
+
+	// 6 抽取：只有 5 抽到过 6
+	if qq, _, ok := pickMutual("6", base, nil); !ok || qq != "5" {
+		t.Errorf("单一配对应命中: got (%q, %v), 期望 5", qq, ok)
+	}
+
+	// 4 抽取：2 抽到过 4（At=50）
+	if qq, at, ok := pickMutual("4", base, nil); !ok || qq != "2" || at != 50 {
+		t.Errorf("应命中抽到 4 的 2: got (%q, %d, %v)", qq, at, ok)
+	}
+
+	// 7 抽取：没人抽到过 7
+	if qq, _, ok := pickMutual("7", base, nil); ok {
+		t.Errorf("无人抽到时应返回 false: got %q", qq)
+	}
+
+	// 已抽到的人不再配对：2 已抽了 4，排除 2 后 4 无人可配
+	if _, _, ok := pickMutual("4", base, map[string]bool{"2": true}); ok {
+		t.Error("排除已配对对象后应返回 false")
+	}
+
+	// 排除最早的一位后取剩下的：2 抽取时排除 3，应轮到 1（At=200）
+	if qq, at, ok := pickMutual("2", base, map[string]bool{"3": true}); !ok || qq != "1" || at != 200 {
+		t.Errorf("排除 3 后应轮到 1: got (%q, %d, %v)", qq, at, ok)
+	}
+
+	// 时间相同（旧数据 At=0）取键序靠前者：states 须已按键排序
+	tie := []memberState{
+		{Owner: "7", State: drawState{Date: "2026-09-16", Partners: []partner{{QQ: "8"}}}},
+		{Owner: "9", State: drawState{Date: "2026-09-16", Partners: []partner{{QQ: "8"}}}},
+	}
+	if qq, _, ok := pickMutual("8", tie, nil); !ok || qq != "7" {
+		t.Errorf("时间相同时应取键序靠前的 7: got (%q, %v)", qq, ok)
+	}
+}
+
+func TestOwnerOfDrawKey(t *testing.T) {
+	cases := []struct{ key, want string }{
+		{"d:888:123", "123"},
+		{"d:888:", ""},
+		{"nocolon", ""},
+	}
+	for _, c := range cases {
+		if got := ownerOfDrawKey(c.key); got != c.want {
+			t.Errorf("ownerOfDrawKey(%q) = %q, 期望 %q", c.key, got, c.want)
+		}
+	}
+}
+
+func TestDrawKeyPrefix(t *testing.T) {
+	if got, want := drawKeyPrefix(message.FromUint64(888)), "d:888:"; got != want {
+		t.Errorf("drawKeyPrefix = %s, 期望 %s", got, want)
+	}
+}
+
 func TestDrawAndMarryKeys(t *testing.T) {
 	group := message.FromUint64(888)
 	user := message.FromUint64(123)

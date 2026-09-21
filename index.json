@@ -131,6 +131,32 @@
       "readme": "README.md"
     },
     {
+      "id": "groupdashboard",
+      "name": "群聊看板",
+      "description": "群消息达到阈值后自动用 AI 生成「群聊日常分析看板」：话题焦点、群友画像、今日金句、氛围报告，渲染成精美长图发到群，支持薄荷看板/杂志海报/暗夜霓虹三种风格",
+      "author": "jeanhua",
+      "version": "1.0.0",
+      "platforms": [
+        "qq",
+        "feishu",
+        "telegram",
+        "discord",
+        "qqofficial"
+      ],
+      "tags": [
+        "群聊",
+        "AI",
+        "看板"
+      ],
+      "api_version": 1,
+      "min_framework": "4.6.0",
+      "entry": {
+        "constructor": "NewPlugin"
+      },
+      "icon": "",
+      "readme": "README.md"
+    },
+    {
       "id": "groupdigest",
       "name": "群刊",
       "description": "群消息达到阈值后自动用 AI 生成群刊，可发送 Markdown 文件或渲染图片",
@@ -344,9 +370,9 @@
     {
       "id": "today-partner",
       "name": "今日对象",
-      "description": "QQ 群娱乐插件：/今日对象(老婆/老公) 从群成员里随机抽今日对象，/强娶 @群成员 直接指定；支持每日抽取次数（1-5）与强娶冷却配置",
+      "description": "QQ 群娱乐插件：/今日对象(老婆/老公) 从群成员里随机抽今日对象（双向配对：抽到过你的人会优先分配给你），/强娶 @群成员 直接指定；支持每日抽取次数（1-5）与强娶冷却配置",
       "author": "jeanhua",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "platforms": [
         "qq"
       ],

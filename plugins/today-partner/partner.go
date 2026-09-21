@@ -7,6 +7,7 @@ package todaypartner
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/jeanhua/AniaBot/common/model/message"
 )
@@ -15,6 +16,7 @@ import (
 type partner struct {
 	QQ   string `json:"qq"`   // 裸 QQ 号（用于拼头像 URL）
 	Name string `json:"name"` // 展示名（群名片优先，回退昵称）
+	At   int64  `json:"at"`   // 被抽到的 Unix 秒级时间戳（双向配对判先后用；旧数据为 0）
 }
 
 // drawState 一个用户在一个群的当日抽取状态。
@@ -67,6 +69,41 @@ func pickCandidate(candidates []partner) (partner, bool) {
 		return partner{}, false
 	}
 	return candidates[rand.Intn(len(candidates))], true
+}
+
+// memberState 群内某个成员的抽取状态（遍历存储枚举而来）。
+type memberState struct {
+	Owner string    // 状态所属人的裸 QQ 号（取自存储键）
+	State drawState // 该人的抽取状态
+}
+
+// ownerOfDrawKey 从抽取状态的存储键（d:<群号>:<QQ号>）解析所属人裸 QQ 号。
+func ownerOfDrawKey(key string) string {
+	if i := strings.LastIndex(key, ":"); i >= 0 {
+		return key[i+1:]
+	}
+	return ""
+}
+
+// pickMutual 双向配对：群内若有人抽到过 sender，返回其中"最早抽到 sender"
+// 且尚未被 sender 抽到的那位（admirer 为其裸 QQ 号，at 为其抽到 sender 的时间戳）。
+// states 须已按存储键排序；抽取时间相同（如升级前的旧数据无时间戳）时取键序靠前者。
+// 没有可配对的人时返回 false。
+func pickMutual(senderQQ string, states []memberState, drawn map[string]bool) (admirer string, at int64, ok bool) {
+	for _, ms := range states {
+		if ms.Owner == senderQQ || drawn[ms.Owner] {
+			continue
+		}
+		for _, pt := range ms.State.Partners {
+			if pt.QQ != senderQQ {
+				continue
+			}
+			if !ok || pt.At < at {
+				admirer, at, ok = ms.Owner, pt.At, true
+			}
+		}
+	}
+	return
 }
 
 // filterCandidates 把群成员列表整理成去重候选：剔除发送者本人、机器人、

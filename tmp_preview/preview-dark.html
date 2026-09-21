@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+.wrap { width:800px; margin:0 auto; padding:30px 26px 22px; }
+.head { display:flex; justify-content:space-between; align-items:flex-end; }
+.stats { display:flex; gap:12px; margin:18px 0; }
+.stat { flex:1; padding:14px 8px 12px; text-align:center; }
+.stat-num { font-size:22px; font-weight:800; }
+.stat-label { font-size:11px; margin-top:3px; }
+.banner { padding:16px 24px; display:flex; justify-content:space-between; align-items:center; }
+.banner-label { font-size:11px; margin-bottom:4px; }
+.banner-time { font-size:25px; font-weight:800; letter-spacing:1px; }
+.banner-date { font-size:12px; text-align:right; }
+.sec { display:flex; align-items:center; margin:24px 0 12px; }
+.sec-bar { width:4px; height:16px; border-radius:2px; margin-right:8px; }
+.sec-title { font-size:16px; font-weight:800; }
+.card { border-radius:14px; padding:18px; }
+.chart { display:flex; align-items:flex-end; gap:5px; height:130px; }
+.chart-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px; height:100%; }
+.chart-val { font-size:9px; font-weight:700; line-height:1; }
+.chart-bar { width:72%; border-radius:4px 4px 2px 2px; }
+.chart-x { display:flex; gap:5px; margin-top:8px; }
+.chart-x span { flex:1; text-align:center; font-size:9px; }
+.topic { border-radius:14px; padding:18px; margin-bottom:13px; }
+.topic-head { display:flex; align-items:baseline; gap:10px; }
+.topic-num { font-size:17px; font-weight:800; }
+.topic-title { font-size:16px; font-weight:800; }
+.topic-summary { font-size:13px; line-height:1.8; margin:8px 0 4px; }
+.tq { border-radius:10px; padding:8px 12px; font-size:12px; display:flex; gap:8px; align-items:flex-start; margin-top:8px; line-height:1.6; }
+.tq .av-wrap, .tq .av-fb, .tq .av { width:20px; height:20px; }
+.tq .av-fb { font-size:10px; }
+.tq-nick { font-weight:700; flex-shrink:0; }
+.tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.tag { font-size:11px; padding:3px 11px; border-radius:999px; }
+.av-wrap { position:relative; width:42px; height:42px; flex-shrink:0; }
+.av { position:absolute; left:0; top:0; width:42px; height:42px; border-radius:50%; object-fit:cover; }
+.av-fb { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:16px; overflow:hidden; }
+.members { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.member { border-radius:14px; padding:16px; }
+.member-head { display:flex; align-items:center; gap:10px; }
+.member-name { font-size:14px; font-weight:800; }
+.member-title { font-size:11px; margin-top:2px; }
+.member-badge { font-size:10px; padding:2px 8px; margin-left:auto; flex-shrink:0; border-radius:999px; color:#fff; }
+.member-imp { font-size:12px; line-height:1.7; margin:10px 0 2px; }
+.quote-item { display:flex; gap:10px; margin-bottom:12px; }
+.quote-bubble { padding:10px 14px; max-width:86%; border-radius:4px 14px 14px 14px; }
+.quote-nick { font-size:11px; margin-bottom:4px; }
+.quote-text { font-size:13px; line-height:1.7; }
+.quote-cmt { display:flex; justify-content:flex-end; margin:-4px 0 16px; }
+.quote-cmt-bubble { padding:8px 13px; font-size:12px; max-width:76%; line-height:1.7; border-radius:14px 4px 14px 14px; color:#fff; }
+.dim { margin-bottom:12px; }
+.dim-head { display:flex; justify-content:space-between; align-items:baseline; font-size:12px; margin-bottom:5px; }
+.dim-name { font-weight:700; }
+.dim-cmt { font-size:11px; margin-left:8px; }
+.dim-score { font-weight:800; }
+.dim-track { height:8px; border-radius:999px; overflow:hidden; }
+.dim-fill { height:100%; border-radius:999px; }
+.atmos-summary { font-size:13px; line-height:1.8; margin-bottom:14px; }
+.editor-card { border-radius:14px; padding:16px 18px; margin-top:6px; }
+.editor-title { font-size:13px; font-weight:800; margin-bottom:6px; }
+.editor-body { font-size:13px; line-height:1.8; opacity:.96; }
+.empty { font-size:12px; text-align:center; padding:14px 0; }
+.foot { text-align:center; font-size:10px; margin-top:20px; line-height:1.8; }
+
+body { background:#0e1613; color:#d9e6e0; font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC","Helvetica Neue",Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+.head-title { font-size:26px; font-weight:800; letter-spacing:1px; color:#eafff7; }
+.head-sub { color:#5f7a70; }
+.head-group { font-size:12px; color:#37e0b0; margin-top:4px; }
+.stat, .card, .topic, .member, .quote-bubble { background:#152420; border:1px solid #1f3a31; box-shadow:none; }
+.stat-label { color:#5f7a70; }
+.stat-num { color:#37e0b0; }
+.banner { background:linear-gradient(120deg,#123f33,#25355c); border:1px solid #24493c; border-radius:14px; color:#eafff7; box-shadow:0 0 24px rgba(55,224,176,.15); }
+.banner-label { opacity:.8; }
+.banner-date { opacity:.85; }
+.sec-bar { background:#37e0b0; }
+.sec-title { color:#eafff7; }
+.chart-val { color:#ffb37e; }
+.chart-bar { background:#245443; }
+.chart-bar.peak { background:linear-gradient(180deg,#ffb37e,#ff7e4e); }
+.chart-x span { color:#4d6a5f; }
+.topic-num { color:#37e0b0; }
+.topic-title { color:#eafff7; }
+.topic-summary { color:#a8c3b8; }
+.tq { background:#101c18; color:#c4d9d0; }
+.tq-nick { color:#37e0b0; }
+.tag { color:#37e0b0; background:rgba(55,224,176,.08); border:1px solid #2a5a49; }
+.member-title { color:#ffb37e; }
+.member-badge { background:#225545; color:#7ff0cd; }
+.member-imp { color:#a8c3b8; }
+.quote-nick { color:#5f7a70; }
+.quote-text { color:#d9e6e0; }
+.quote-cmt-bubble { background:linear-gradient(120deg,#134636,#25355c); }
+.dim-cmt { color:#5f7a70; }
+.dim-score { color:#37e0b0; }
+.dim-track { background:#1c2f28; }
+.dim-fill { background:linear-gradient(90deg,#37e0b0,#5aa8ff); }
+.atmos-summary { color:#a8c3b8; }
+.editor-card { background:linear-gradient(120deg,#134636,#25355c); color:#eafff7; box-shadow:0 0 24px rgba(55,224,176,.12); }
+.empty, .foot { color:#4d6a5f; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <div class="head-title">群聊日常分析看板</div>
+      <div class="head-group">AniaBot 交流群</div>
+    </div>
+    <div class="head-sub">生成时间 · 2026/09/18 13:51</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-num">120</div><div class="stat-label">消息总量</div></div>
+    <div class="stat"><div class="stat-num">6</div><div class="stat-label">参与人数</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-label">热门话题</div></div>
+    <div class="stat"><div class="stat-num">1280</div><div class="stat-label">字符总数</div></div>
+  </div>
+
+  <div class="banner">
+    <div>
+      <div class="banner-label">统计时段</div>
+      <div class="banner-time">19:00 - 23:56</div>
+    </div>
+    <div class="banner-date">2026/09/18</div>
+  </div>
+
+  <div class="sec"><div class="sec-bar"></div><div class="sec-title">24 小时活动</div></div>
+  <div class="card">
+    <div class="chart">
+      <div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-bar" style="height:4%"></div></div><div class="chart-col"><div class="chart-val">12</div><div class="chart-bar" style="height:31.6%"></div></div><div class="chart-col"><div class="chart-val">25</div><div class="chart-bar" style="height:65.8%"></div></div><div class="chart-col"><div class="chart-val">38</div><div class="chart-bar peak" style="height:100.0%"></div></div><div class="chart-col"><div class="chart-val">30</div><div class="chart-bar" style="height:78.9%"></div></div><div class="chart-col"><div class="chart-val">15</div><div class="chart-bar" style="height:39.5%"></div></div>
+    </div>
+    <div class="chart-x"><span>00</span><span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span><span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span></div>
+  </div>
+
+  <div class="sec"><div class="sec-bar"></div><div class="sec-title">话题焦点</div></div>
+  
+  <div class="topic">
+    <div class="topic-head"><span class="topic-num">#01</span><span class="topic-title">晚饭吃什么</span></div>
+    <div class="topic-summary">入秋后的第一顿晚饭引发了火锅派与烧烤派的正面对决，最终辣椒酱成为最大赢家。</div>
+    <div class="tq"><div class="av-wrap"><div class="av-fb" style="background:#f2a379">汤</div><img class="av" src="https://q1.qlogo.cn/g?nk=2207739460&amp;s=100" alt="" onerror="this.remove()"></div><div><span class="tq-nick">汤圆：</span>火锅！必须火锅</div></div><div class="tq"><div class="av-wrap"><div class="av-fb" style="background:#8fd0d8">阿</div><img class="av" src="https://q1.qlogo.cn/g?nk=123456789&amp;s=100" alt="" onerror="this.remove()"></div><div><span class="tq-nick">阿泽：</span>我投烧烤一票</div></div>
+    <div class="tags"><span class="tag">美食</span><span class="tag">日常</span><span class="tag">入秋</span></div>
+  </div>
+  
+  <div class="topic">
+    <div class="topic-head"><span class="topic-num">#02</span><span class="topic-title">新模型实测</span></div>
+    <div class="topic-summary">大家讨论了新发布模型的实测体验，写代码与抓 bug 场景被反复点名。</div>
+    <div class="tq"><div class="av-wrap"><div class="av-fb" style="background:#a8d896">摸</div><img class="av" src="https://q1.qlogo.cn/g?nk=77889900&amp;s=100" alt="" onerror="this.remove()"></div><div><span class="tq-nick">摸鱼大师：</span>实测比上代聪明</div></div><div class="tq"><div class="av-wrap"><div class="av-fb" style="background:#8fd0d8">阿</div><img class="av" src="https://q1.qlogo.cn/g?nk=123456789&amp;s=100" alt="" onerror="this.remove()"></div><div><span class="tq-nick">阿泽：</span>抓了一下午的 bug 是少了个分号</div></div>
+    <div class="tags"><span class="tag">AI</span><span class="tag">编程</span></div>
+  </div>
+  
+  <div class="topic">
+    <div class="topic-head"><span class="topic-num">#03</span><span class="topic-title">周末去哪</span></div>
+    <div class="topic-summary">看展、跑步、撸猫，群友的周末计划高度重合又完全不同。</div>
+    <div class="tq"><div class="av-wrap"><div class="av-fb" style="background:#5fc9a8">芝</div><img class="av" src="https://q1.qlogo.cn/g?nk=555000111&amp;s=100" alt="" onerror="this.remove()"></div><div><span class="tq-nick">芝士蛋糕：</span>周末有人去看展吗</div></div>
+    <div class="tags"><span class="tag">周末</span><span class="tag">生活</span></div>
+  </div>
+  
+
+  <div class="sec"><div class="sec-bar"></div><div class="sec-title">群友画像</div></div>
+  <div class="members">
+  <div class="member">
+    <div class="member-head"><div class="av-wrap"><div class="av-fb" style="background:#f2a379">汤</div><img class="av" src="https://q1.qlogo.cn/g?nk=2207739460&amp;s=100" alt="" onerror="this.remove()"></div><div><div class="member-name">汤圆</div><div class="member-title">气氛担当</div></div><span class="member-badge">19 条</span></div>
+    <div class="member-imp">群里最活跃的声音，火锅事业头号代言人</div>
+    <div class="tags"><span class="tag">干饭</span><span class="tag">活跃</span></div>
+  </div>
+  
+  <div class="member">
+    <div class="member-head"><div class="av-wrap"><div class="av-fb" style="background:#8fd0d8">阿</div><img class="av" src="https://q1.qlogo.cn/g?nk=123456789&amp;s=100" alt="" onerror="this.remove()"></div><div><div class="member-name">阿泽</div><div class="member-title">技术百科</div></div><span class="member-badge">21 条</span></div>
+    <div class="member-imp">从模型评测到分号 debug 无所不知</div>
+    <div class="tags"><span class="tag">编程</span><span class="tag">实测</span></div>
+  </div>
+  
+  <div class="member">
+    <div class="member-head"><div class="av-wrap"><div class="av-fb" style="background:#a8d896">摸</div><img class="av" src="https://q1.qlogo.cn/g?nk=77889900&amp;s=100" alt="" onerror="this.remove()"></div><div><div class="member-name">摸鱼大师</div><div class="member-title">冲浪先锋</div></div><span class="member-badge">21 条</span></div>
+    <div class="member-imp">新事物第一现场的常客，潜水时间最长</div>
+    <div class="tags"><span class="tag">资讯</span></div>
+  </div>
+  
+  <div class="member">
+    <div class="member-head"><div class="av-wrap"><div class="av-fb" style="background:#5fc9a8">芝</div><img class="av" src="https://q1.qlogo.cn/g?nk=555000111&amp;s=100" alt="" onerror="this.remove()"></div><div><div class="member-name">芝士蛋糕</div><div class="member-title">生活美学家</div></div><span class="member-badge">19 条</span></div>
+    <div class="member-imp">看展跑步两不误，把日子过成诗</div>
+    <div class="tags"><span class="tag">文艺</span><span class="tag">运动</span></div>
+  </div>
+  
+  <div class="member">
+    <div class="member-head"><div class="av-fb" style="background:#f096a8">潜</div><div><div class="member-name">潜水怪</div><div class="member-title">幕后观众</div></div><span class="member-badge">20 条</span></div>
+    <div class="member-imp">常年潜水，但每条消息都有点赞</div>
+    <div class="tags"><span class="tag">潜水</span></div>
+  </div>
+  </div>
+
+  <div class="sec"><div class="sec-bar"></div><div class="sec-title">今日金句</div></div>
+  
+  <div class="quote-item"><div class="av-wrap"><div class="av-fb" style="background:#8fd0d8">阿</div><img class="av" src="https://q1.qlogo.cn/g?nk=123456789&amp;s=100" alt="" onerror="this.remove()"></div><div class="quote-bubble"><div class="quote-nick">阿泽</div><div class="quote-text">这个 bug 抓了一下午，结果是少了个分号</div></div></div>
+  <div class="quote-cmt"><div class="quote-cmt-bubble">💬 分号虽小， kills 最狠</div></div>
+  
+  <div class="quote-item"><div class="av-wrap"><div class="av-fb" style="background:#f2a379">汤</div><img class="av" src="https://q1.qlogo.cn/g?nk=2207739460&amp;s=100" alt="" onerror="this.remove()"></div><div class="quote-bubble"><div class="quote-nick">汤圆</div><div class="quote-text">天冷了只想吃热乎的</div></div></div>
+  <div class="quote-cmt"><div class="quote-cmt-bubble">💬 人间真实，胃是第一个入秋的器官</div></div>
+  
+  <div class="quote-item"><div class="av-wrap"><div class="av-fb" style="background:#a8d896">摸</div><img class="av" src="https://q1.qlogo.cn/g?nk=77889900&amp;s=100" alt="" onerror="this.remove()"></div><div class="quote-bubble"><div class="quote-nick">摸鱼大师</div><div class="quote-text">CPU 都干冒烟了</div></div></div>
+  <div class="quote-cmt"><div class="quote-cmt-bubble">💬 建议群友和人一起降降温</div></div>
+  
+
+  
+  <div class="sec"><div class="sec-bar"></div><div class="sec-title">群聊氛围报告</div></div>
+  <div class="card">
+    <div class="atmos-summary">今晚群聊以美食开场、技术收尾，整体轻松欢乐，争论激烈但气氛友好。</div>
+    
+    <div class="dim">
+      <div class="dim-head"><span><span class="dim-name">活跃度</span><span class="dim-cmt">话题一个接一个</span></span><span class="dim-score">92</span></div>
+      <div class="dim-track"><div class="dim-fill" style="width:92%"></div></div>
+    </div>
+    
+    <div class="dim">
+      <div class="dim-head"><span><span class="dim-name">话题集中度</span><span class="dim-cmt">吃与代码齐飞</span></span><span class="dim-score">76</span></div>
+      <div class="dim-track"><div class="dim-fill" style="width:76%"></div></div>
+    </div>
+    
+    <div class="dim">
+      <div class="dim-head"><span><span class="dim-name">互动性</span><span class="dim-cmt">接梗速度极快</span></span><span class="dim-score">85</span></div>
+      <div class="dim-track"><div class="dim-fill" style="width:85%"></div></div>
+    </div>
+    
+    <div class="dim">
+      <div class="dim-head"><span><span class="dim-name">欢乐值</span><span class="dim-cmt">笑点密集预警</span></span><span class="dim-score">95</span></div>
+      <div class="dim-track"><div class="dim-fill" style="width:95%"></div></div>
+    </div>
+    
+    <div class="atmos-summary">💡 多喝水，少熬夜，火锅要趁热</div>
+  </div>
+  
+
+  
+  <div class="editor-card">
+    <div class="editor-title">✏️ 编辑寄语</div>
+    <div class="editor-body">今晚的群像火锅沸腾：一半人在干饭，一半人在 debug，而分号为这一切画上了句号。明天见！</div>
+  </div>
+  
+
+  <div class="foot">Generated by AniaBot · 群聊看板插件 · 2026/09/18 13:51<br>由 AI 分析生成，内容仅供娱乐参考</div>
+</div>
+</body>
+</html>
