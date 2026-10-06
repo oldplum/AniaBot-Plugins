@@ -3,11 +3,21 @@
   "name": "Pixiv涩图",
   "description": "群聊@我或私聊发送 /setu 随机 Pixiv 涩图，支持 tag 搜索、多连发、R18 开关与正则放行名单",
   "author": "jeanhua",
-  "version": "1.1.2",
-  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
-  "tags": ["娱乐", "图片", "pixiv"],
+  "version": "1.1.3",
+  "platforms": [
+    "qq",
+    "feishu",
+    "telegram",
+    "discord",
+    "qqofficial"
+  ],
+  "tags": [
+    "娱乐",
+    "图片",
+    "pixiv"
+  ],
   "api_version": 1,
-  "min_framework": "4.6.0",
+  "min_framework": "4.7.7",
   "entry": {
     "constructor": "NewPlugin"
   },

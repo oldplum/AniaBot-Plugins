@@ -27,13 +27,24 @@ func NewPlugin() *AntiWithdrawalPlugin {
 	p.Name = "防撤回"
 	p.HelpWords = "群聊回顾最近的n条消息，发送 /explore [n] 获取，n<=100，默认50"
 	p.Author = "jeanhua"
-	p.Version = "1.0.0"
+	p.Version = "1.0.1"
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup
 	p.Order = plugin.LevelNormal
 	// 防撤回依赖合并转发（send_forward_msg）与 rkey 签名 URL，均为 QQ 平台能力
 	p.Platforms = []string{"qq"}
 	return p
+}
+
+// OnUnload 卸载钩子：被插件市场卸载时清空内存中的群消息缓存；
+// Bot 退出/重启（UnloadShutdown）无需处理——缓存本就在内存、随进程结束释放。
+func (p *AntiWithdrawalPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason != plugin.UnloadUninstall {
+		return nil
+	}
+	p.msg.Clear()
+	p.Logger.Info("已清理防撤回消息缓存（卸载）")
+	return nil
 }
 
 const (

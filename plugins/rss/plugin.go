@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanhua/AniaBot/common/bot"
@@ -72,6 +73,8 @@ type RSSPlugin struct {
 	mu     sync.Mutex                // 保护订阅条目的读改写（命令处理与后台轮询并发）
 	pollMu sync.Mutex                // 防止多轮轮询并发执行导致重复推送
 	cancel context.CancelFunc        // 停止后台轮询 goroutine
+	// closed 卸载后置位：停止命令处理与后台轮询的写数据，避免清理后状态写回。
+	closed atomic.Bool
 }
 
 // NewPlugin 构造函数（plugin.json 的 entry.constructor 指向这里）。
@@ -82,7 +85,7 @@ func NewPlugin() *RSSPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.0.0"
+	p.Version = "1.0.1"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -127,9 +130,28 @@ func (p *RSSPlugin) Awake(ctx context.Context, b bot.Bot) error {
 	return nil
 }
 
+// OnUnload 卸载钩子：停止后台轮询 goroutine；被插件市场卸载时再清空全部订阅数据。
+// Bot 退出/重启（UnloadShutdown）只停轮询——订阅保留，重启后继续推送。
+func (p *RSSPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	p.closed.Store(true)
+	if p.cancel != nil {
+		p.cancel()
+	}
+	if reason != plugin.UnloadUninstall || p.store == nil {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.store.Clear(ctx) {
+		return fmt.Errorf("清理订阅数据失败")
+	}
+	p.Logger.Info("已清理 RSS 订阅数据（卸载）")
+	return nil
+}
+
 // OnGroupMsg 群聊消息事件：/rss 子命令分发。
 func (p *RSSPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable || !cmd.Mention {
+	if !p.cfg.Enable || p.closed.Load() || !cmd.Mention {
 		return true, nil
 	}
 	switch normalizeCmd(cmd.Name) {
@@ -143,7 +165,7 @@ func (p *RSSPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Comma
 
 // OnFriendMsg 私聊消息事件：私聊无需 @。
 func (p *RSSPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable {
+	if !p.cfg.Enable || p.closed.Load() {
 		return true, nil
 	}
 	switch normalizeCmd(cmd.Name) {
@@ -247,6 +269,10 @@ func (p *RSSPlugin) cmdAdd(ctx context.Context, b bot.Bot, chat, rawURL string, 
 	}
 
 	p.mu.Lock()
+	if p.closed.Load() { // 已卸载清理：不再写回
+		p.mu.Unlock()
+		return
+	}
 	if !p.store.Set(ctx, key, sub) {
 		p.mu.Unlock()
 		p.reply(b, chat, "保存订阅失败，请稍后再试")
@@ -405,6 +431,10 @@ func (p *RSSPlugin) pollKeys(ctx context.Context, b bot.Bot, keys []string) {
 		items, title, err := p.fetchFeed(sub.URL)
 		if err != nil {
 			p.mu.Lock()
+			if p.closed.Load() { // 已卸载清理：丢弃在途轮询结果
+				p.mu.Unlock()
+				return
+			}
 			sub.FailCount++
 			reached := p.cfg.MaxFails > 0 && sub.FailCount >= p.cfg.MaxFails
 			if reached {
@@ -425,6 +455,10 @@ func (p *RSSPlugin) pollKeys(ctx context.Context, b bot.Bot, keys []string) {
 		}
 
 		p.mu.Lock()
+		if p.closed.Load() { // 已卸载清理：丢弃在途轮询结果
+			p.mu.Unlock()
+			return
+		}
 		sub.FailCount = 0
 		if sub.Title == "" && title != "" {
 			sub.Title = title

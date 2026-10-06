@@ -66,6 +66,10 @@
 
 本插件只访问 Pixiv 官方域名：`app-api.pixiv.net`（数据接口）、`oauth.secure.pixiv.net`（登录换 token）、`i.pximg.net`（图片下载）。除此之外不与任何第三方服务通信，refresh_token 等凭证只用于向 Pixiv 官方换取登录态，不会外发。
 
+## 卸载说明
+
+- 从插件市场卸载时会清空登录会话与频率缓存；Bot 退出/重启时这些状态随进程释放，重启后按 refresh_token 重新登录。
+
 ## 常见问题
 
 - **提示登录失败 / refresh_token 已失效**：重新获取 refresh_token 并在面板更新。

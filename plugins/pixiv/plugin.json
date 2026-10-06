@@ -3,11 +3,21 @@
   "name": "Pixiv",
   "description": "登录 Pixiv 后支持插画搜索、排行榜、推荐、作品/画师查询与相关作品，内置分级(R18)过滤、个人限流与群放行名单",
   "author": "jeanhua",
-  "version": "1.0.3",
-  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
-  "tags": ["图片", "pixiv", "ACG"],
+  "version": "1.0.4",
+  "platforms": [
+    "qq",
+    "feishu",
+    "telegram",
+    "discord",
+    "qqofficial"
+  ],
+  "tags": [
+    "图片",
+    "pixiv",
+    "ACG"
+  ],
   "api_version": 1,
-  "min_framework": "4.6.0",
+  "min_framework": "4.7.7",
   "entry": {
     "constructor": "NewPlugin"
   },

@@ -46,9 +46,29 @@ func NewPlugin() *PixivPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.0.3"
+	p.Version = "1.0.4"
 	p.Order = plugin.LevelNormal
 	return p
+}
+
+// OnUnload 卸载钩子：被插件市场卸载时清空登录会话与用户频率缓存；
+// Bot 退出/重启（UnloadShutdown）无需处理——这些状态本就在内存、
+// 随进程结束释放，重启后按 refresh_token 重新登录。
+func (p *PixivPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason != plugin.UnloadUninstall {
+		return nil
+	}
+	p.session.mu.Lock()
+	p.session.accessToken = ""
+	p.session.expiresAt = time.Time{}
+	p.session.userID = ""
+	p.session.userName = ""
+	p.session.mu.Unlock()
+	p.mu.Lock()
+	p.users = make(map[string]*userBucket)
+	p.mu.Unlock()
+	p.Logger.Info("已清理登录会话与频率缓存（卸载）")
+	return nil
 }
 
 // Start 初始化：参数兜底、正则/代理预检、构建 HTTP 客户端并异步预热登录。

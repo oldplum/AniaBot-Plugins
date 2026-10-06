@@ -25,7 +25,7 @@ func NewPlugin() *ExamplePlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.0.0"
+	p.Version = "1.0.1"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -51,4 +51,18 @@ func (p *ExamplePlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.
 	builder.Text("Hello, AniaBot!")
 	b.SendFriendMsg(msg.Sender.UserId, builder.Build())
 	return false, nil
+}
+
+// OnUnload 卸载钩子（可选接口 plugin.UnloadEvent）：插件被卸载前执行一次清理。
+// reason 为 plugin.UnloadShutdown（Bot 退出/重启，全部插件都会收到）或
+// plugin.UnloadUninstall（插件市场卸载，仅被卸载的插件收到）。
+//
+// 有状态插件应在这里释放资源：取消后台 goroutine、清空内存缓存；
+// 只有 UnloadUninstall 才应删除持久化数据（UnloadShutdown 后插件会重新加载）。
+// 钩子可能与运行期事件并发，注意并发安全与 1 分钟超时。
+func (p *ExamplePlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason == plugin.UnloadUninstall {
+		// 示例：清空本插件的持久化数据（如 p.PersistentStorage.Clear(ctx)）
+	}
+	return nil
 }

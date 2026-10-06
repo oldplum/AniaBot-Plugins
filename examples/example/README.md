@@ -19,6 +19,7 @@
 - `plugin.Meta` 嵌入与元信息声明（`Name` / `HelpWords` / `ShowFor` / `Order` 等）
 - 消息事件 `OnGroupMsg` / `OnFriendMsg` 的返回语义（返回 `false` 停止后续插件）
 - `msgchain.Builder()` 构造回复消息
+- 卸载钩子 `OnUnload`（可选接口 `plugin.UnloadEvent`）：区分退出/重启与市场卸载两种原因
 - 无第三方依赖，只用框架公共 API
 
 ## 说明

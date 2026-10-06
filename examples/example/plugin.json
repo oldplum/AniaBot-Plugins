@@ -3,11 +3,11 @@
   "name": "示例插件",
   "description": "插件开发入门示例：at 机器人发送 /example 回复问候语",
   "author": "jeanhua",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
   "tags": ["示例"],
   "api_version": 1,
-  "min_framework": "4.6.0",
+  "min_framework": "4.7.7",
   "entry": {
     "constructor": "NewPlugin"
   },

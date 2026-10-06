@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanhua/AniaBot/common/bot"
@@ -44,6 +45,8 @@ type TodayPartnerPlugin struct {
 	cfg   todayPartnerConfig
 	store storage.PersistentStorage // Clone("today-partner") 后的命名空间
 	mu    sync.Mutex                // 保护抽取/冷却状态的读改写
+	// closed 卸载清理后置位：不再处理命令与写数据，避免清理后事件把状态写回。
+	closed atomic.Bool
 }
 
 // NewPlugin 构造函数。
@@ -54,7 +57,7 @@ func NewPlugin() *TodayPartnerPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup
 	p.Author = "jeanhua"
-	p.Version = "1.2.0"
+	p.Version = "1.2.1"
 	p.Order = plugin.LevelNormal
 	p.Platforms = []string{"qq"}
 	return p
@@ -76,9 +79,26 @@ func (p *TodayPartnerPlugin) Start(ctx context.Context, cfg *viper.Viper) error 
 	return nil
 }
 
+// OnUnload 卸载钩子：被插件市场卸载时清空全部抽取与冷却状态；
+// Bot 退出/重启（UnloadShutdown）不清理——当天状态保留，重启后继续。
+func (p *TodayPartnerPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason != plugin.UnloadUninstall {
+		return nil
+	}
+	p.closed.Store(true)
+	if p.store == nil {
+		return nil
+	}
+	if !p.store.Clear(ctx) {
+		return fmt.Errorf("清理今日对象数据失败")
+	}
+	p.Logger.Info("已清理今日对象数据（卸载）")
+	return nil
+}
+
 // OnGroupMsg 群聊消息事件（本插件只支持群聊，私聊不响应）。
 func (p *TodayPartnerPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable || !cmd.Mention {
+	if !p.cfg.Enable || p.closed.Load() || !cmd.Mention {
 		return true, nil
 	}
 	switch cmd.Name {
@@ -107,6 +127,10 @@ func (p *TodayPartnerPlugin) cmdDraw(ctx context.Context, b bot.Bot, cmdName str
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.closed.Load() { // 已卸载清理：不再写回
+		return
+	}
 
 	var st drawState
 	p.store.Get(ctx, key, &st)
@@ -235,6 +259,10 @@ func (p *TodayPartnerPlugin) cmdMarry(ctx context.Context, b bot.Bot, msg messag
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.closed.Load() { // 已卸载清理：不再写回
+		return
+	}
 
 	var mc marryState
 	p.store.Get(ctx, key, &mc)

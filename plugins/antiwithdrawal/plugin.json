@@ -3,11 +3,17 @@
   "name": "防撤回",
   "description": "QQ 群防撤回：缓存每个群最近 100 条消息，/explore 以合并转发回顾最近 n 条，撤回的消息也能查看",
   "author": "jeanhua",
-  "version": "1.0.0",
-  "platforms": ["qq"],
-  "tags": ["群聊", "防撤回", "消息回顾"],
+  "version": "1.0.1",
+  "platforms": [
+    "qq"
+  ],
+  "tags": [
+    "群聊",
+    "防撤回",
+    "消息回顾"
+  ],
   "api_version": 1,
-  "min_framework": "4.6.0",
+  "min_framework": "4.7.7",
   "entry": {
     "constructor": "NewPlugin"
   },

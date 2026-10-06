@@ -1,6 +1,6 @@
 # plugin.json 规范
 
-> 开发插件前建议先阅读 AniaBot 的[插件系统概览](https://jeanhua.github.io/AniaBot/plugin/overview)与[第一个插件](https://jeanhua.github.io/AniaBot/plugin/first-plugin)；本文档只规定市场插件的元信息（plugin.json）格式。
+> 开发插件前建议先阅读 AniaBot 的[插件系统概览](https://aniabot-project.github.io/AniaBot/plugin/overview)与[第一个插件](https://aniabot-project.github.io/AniaBot/plugin/first-plugin)；本文档只规定市场插件的元信息（plugin.json）格式。
 
 每个插件目录 `plugins/<id>/` 必须包含 `plugin.json`、`README.md` 与 Go 源码。
 
@@ -49,7 +49,8 @@
 
 - 包名任意，但构造函数（默认 `NewPlugin`）必须返回 `common/plugin.Plugin`（嵌入 `plugin.Meta` 实现）
 - 元信息 `Meta.Name` 建议与 `plugin.json` 的 `name` 一致（面板已安装列表以此展示）
-- 可选的扩展能力照常生效：`ConfigSchema()` 让面板「配置管理」自动渲染表单；`ConfigRegistrar` 动态注册配置字段；`PlatformEventHandler` 接收平台专属事件；`OnPanic` 处理运行期 panic
+- 可选的扩展能力照常生效：`ConfigSchema()` 让面板「配置管理」自动渲染表单；`ConfigRegistrar` 动态注册配置字段；`PlatformEventHandler` 接收平台专属事件；`InteractionHandler` 接收内联按钮点击；`UnloadEvent`（`OnUnload`）在插件卸载前清理资源与数据；`OnPanic` 处理运行期 panic
+- 实现 `UnloadEvent` 的插件必须把 `min_framework` 抬到 `4.7.7` 及以上（更早的框架没有该接口）
 - 禁止在 `init()` 中做网络请求/读写文件等有副作用操作（安装编译期会被执行）
 
 ## 示例

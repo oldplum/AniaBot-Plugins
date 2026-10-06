@@ -3,11 +3,15 @@ package groupdigest
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jeanhua/AniaBot/common/model/command"
 	"github.com/jeanhua/AniaBot/common/model/message"
+	"github.com/jeanhua/AniaBot/common/plugin"
 	"github.com/jeanhua/AniaBot/common/storage"
 )
 
@@ -202,4 +206,50 @@ func (f *fakePersistent) Clear(_ context.Context) bool {
 func (f *fakePersistent) Clone(_ string) storage.PersistentStorage {
 	// 测试用：共享同一份数据
 	return f
+}
+
+// TestOnUnload 卸载钩子：shutdown（退出/重启）保留缓存，uninstall（市场卸载）
+// 清空内存与持久化缓存，且清理后不再写回。
+func TestOnUnload(t *testing.T) {
+	p := NewPlugin()
+	p.cfg.Enable = true
+	p.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	store := newFakePersistent()
+	p.store = store
+	ctx := context.Background()
+
+	st := &groupState{count: 3, messages: []digestMessage{{Nickname: "张三", Text: "你好"}}}
+	p.states.Store("qq:100", st)
+	if !store.SetString(ctx, "g:qq:100", `{"count":3}`) {
+		t.Fatal("准备持久化缓存失败")
+	}
+
+	// shutdown：不清理
+	if err := p.OnUnload(ctx, plugin.UnloadShutdown); err != nil {
+		t.Fatalf("shutdown 卸载不应报错: %v", err)
+	}
+	if !store.Has(ctx, "g:qq:100") {
+		t.Fatal("shutdown 不应清理持久化缓存")
+	}
+
+	// uninstall：清理内存与持久层
+	if err := p.OnUnload(ctx, plugin.UnloadUninstall); err != nil {
+		t.Fatalf("uninstall 卸载不应报错: %v", err)
+	}
+	if store.Has(ctx, "g:qq:100") {
+		t.Fatal("uninstall 应清理持久化缓存")
+	}
+	if _, ok := p.states.Load("qq:100"); ok {
+		t.Fatal("uninstall 应清空内存缓存")
+	}
+
+	// 清理后事件不再收集、也不写回
+	got, err := p.OnGroupMsg(ctx, nil, command.Command{}, message.Message{GroupId: message.FromString("100")})
+	if err != nil || !got {
+		t.Fatalf("卸载后消息事件应放行: got=%v err=%v", got, err)
+	}
+	p.persistState("qq:100", st)
+	if store.Has(ctx, "g:qq:100") {
+		t.Fatal("清理后不应再写回缓存")
+	}
 }

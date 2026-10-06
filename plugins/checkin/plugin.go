@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanhua/AniaBot/common/bot"
@@ -51,6 +52,8 @@ type CheckinPlugin struct {
 	plugin.Meta
 	cfg   checkinConfig
 	store storage.PersistentStorage // Clone("checkin") 后的命名空间
+	// closed 卸载清理后置位：不再处理命令与写数据，避免清理后事件把数据写回。
+	closed atomic.Bool
 }
 
 // NewPlugin 构造函数。
@@ -61,7 +64,7 @@ func NewPlugin() *CheckinPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.0.0"
+	p.Version = "1.0.1"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -82,9 +85,26 @@ func (p *CheckinPlugin) Start(ctx context.Context, cfg *viper.Viper) error {
 	return nil
 }
 
+// OnUnload 卸载钩子：被插件市场卸载时清空本插件的签到数据（积分/连签/排行榜）；
+// Bot 退出/重启（UnloadShutdown）不清理——数据保留，重启后继续累计。
+func (p *CheckinPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason != plugin.UnloadUninstall {
+		return nil
+	}
+	p.closed.Store(true)
+	if p.store == nil {
+		return nil
+	}
+	if !p.store.Clear(ctx) {
+		return fmt.Errorf("清理签到数据失败")
+	}
+	p.Logger.Info("已清理签到数据（卸载）")
+	return nil
+}
+
 // OnGroupMsg 群聊消息事件。
 func (p *CheckinPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable || !cmd.Mention {
+	if !p.cfg.Enable || p.closed.Load() || !cmd.Mention {
 		return true, nil
 	}
 	return p.handle(ctx, b, true, cmd, msg)
@@ -92,7 +112,7 @@ func (p *CheckinPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.C
 
 // OnFriendMsg 私聊消息事件（无需 @）。
 func (p *CheckinPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable {
+	if !p.cfg.Enable || p.closed.Load() {
 		return true, nil
 	}
 	return p.handle(ctx, b, false, cmd, msg)
@@ -162,6 +182,9 @@ func (p *CheckinPlugin) cmdCheckin(ctx context.Context, b bot.Bot, inGroup bool,
 	}
 	rec.Points += base + bonus
 
+	if p.closed.Load() { // 已卸载清理：不再写回
+		return
+	}
 	if !p.store.Set(ctx, userPrefix+qid, rec) {
 		p.reply(b, inGroup, chat, msg.Sender.UserId, "保存签到数据失败，请稍后再试")
 		return

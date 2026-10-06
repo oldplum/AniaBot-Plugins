@@ -48,7 +48,7 @@ func NewPlugin() *SetuPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.1.2"
+	p.Version = "1.1.3"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -118,6 +118,24 @@ func (p *SetuPlugin) Awake(ctx context.Context, b bot.Bot) error {
 	} else {
 		p.Logger.Info("涩图插件已就绪，索引仍在后台加载中，首个请求会触发同步加载")
 	}
+	return nil
+}
+
+// OnUnload 卸载钩子：取消索引定时刷新 goroutine，并清空内存中的索引与
+// 用户频率缓存（纯内存数据，无需区分卸载原因）。
+func (p *SetuPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if p.indexCancel != nil {
+		p.indexCancel()
+		p.indexCancel = nil
+	}
+	p.index.mu.Lock()
+	p.index.files = nil
+	p.index.updatedAt = time.Time{}
+	p.index.mu.Unlock()
+	p.mu.Lock()
+	p.users = make(map[string]*userBucket)
+	p.mu.Unlock()
+	p.Logger.Info("已停止涩图索引刷新并清空缓存（卸载）", "reason", reason)
 	return nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanhua/AniaBot/bot/component/aichat"
@@ -75,6 +76,9 @@ type GroupDigestPlugin struct {
 	store storage.PersistentStorage
 	// states 按群隔离的计数与消息缓冲。
 	states sync.Map // groupID -> *groupState
+	// closed 卸载清理后置位：消息事件与生成协程不再读写缓存（含持久层），
+	// 避免清理与运行期事件并发时把已删的缓存写回来。见 OnUnload。
+	closed atomic.Bool
 }
 
 // NewPlugin 构造函数（plugin.json 的 entry.constructor 默认指向这里）。
@@ -85,7 +89,7 @@ func NewPlugin() *GroupDigestPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup
 	p.Author = "jeanhua"
-	p.Version = "1.3.1"
+	p.Version = "1.3.2"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -141,10 +145,33 @@ func (p *GroupDigestPlugin) Start(ctx context.Context, cfg *viper.Viper) error {
 	return nil
 }
 
+// OnUnload 卸载钩子：被插件市场卸载时清空内存与持久化的群消息缓存；
+// Bot 退出/重启（UnloadShutdown）不清理——插件重启后按群恢复计数继续累计。
+// 钩子可能与消息事件并发，先置 closed 再清理，保证清理后缓存不会被写回。
+func (p *GroupDigestPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason != plugin.UnloadUninstall {
+		return nil
+	}
+	p.closed.Store(true)
+	p.states.Clear()
+	if p.store == nil {
+		p.Logger.Info("已清空内存中的群刊消息缓存（持久化存储不可用）")
+		return nil
+	}
+	if !p.store.Clear(ctx) {
+		return fmt.Errorf("清理群刊消息缓存失败")
+	}
+	p.Logger.Info("已清理群刊消息缓存（卸载）")
+	return nil
+}
+
 // OnGroupMsg 群聊消息事件：先处理管理命令，再按群累计消息，达到阈值后异步触发群刊生成。
 // 管理命令返回 false 停止传播；普通消息始终返回 true，不阻断后续插件（如 AI 对话）。
 func (p *GroupDigestPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
 	if !p.cfg.Enable {
+		return true, nil
+	}
+	if p.closed.Load() { // 已卸载清理：不再收集新消息
 		return true, nil
 	}
 	if cmd.Mention && p.tryHandleCommand(b, cmd, msg) {
@@ -189,6 +216,9 @@ func (p *GroupDigestPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd comma
 // 私聊无需 @ 机器人，直接发送斜杠命令即可（各平台私聊通常无法/不需要艾特）。
 func (p *GroupDigestPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
 	if !p.cfg.Enable {
+		return true, nil
+	}
+	if p.closed.Load() { // 已卸载清理：不再响应命令
 		return true, nil
 	}
 	if cmd.Name == cmdAllFull || cmd.Name == cmdDigest || cmd.Name == cmdDigestCN {
@@ -433,7 +463,7 @@ func (p *GroupDigestPlugin) manualGenerate(b bot.Bot, msg message.Message) {
 
 // persistState 把指定群的计数与缓冲快照写入持久化存储（digest:g:<群ID>）。
 func (p *GroupDigestPlugin) persistState(gid string, st *groupState) {
-	if p.store == nil {
+	if p.store == nil || p.closed.Load() { // 已卸载清理：不再写回
 		return
 	}
 	st.mu.Lock()

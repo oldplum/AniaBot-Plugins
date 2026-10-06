@@ -35,10 +35,10 @@
 
 ## 相关文档
 
-- [AniaBot 插件系统概览](https://jeanhua.github.io/AniaBot/plugin/overview) —— 插件如何被加载与执行
-- [第一个插件](https://jeanhua.github.io/AniaBot/plugin/first-plugin) / [完整教程](https://jeanhua.github.io/AniaBot/plugin/tutorial) —— 从零开发插件
+- [AniaBot 插件系统概览](https://aniabot-project.github.io/AniaBot/plugin/overview) —— 插件如何被加载与执行
+- [第一个插件](https://aniabot-project.github.io/AniaBot/plugin/first-plugin) / [完整教程](https://aniabot-project.github.io/AniaBot/plugin/tutorial) —— 从零开发插件
 - [插件规范（本仓库）](docs/plugin-spec.md) —— plugin.json 元信息规范
-- [AniaBot 文档站点](https://jeanhua.github.io/AniaBot/) —— 全部文档
+- [AniaBot 文档站点](https://aniabot-project.github.io/AniaBot/) —— 全部文档
 
 ## 版本与兼容
 

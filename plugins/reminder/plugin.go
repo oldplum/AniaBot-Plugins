@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanhua/AniaBot/common/bot"
@@ -50,6 +51,8 @@ type ReminderPlugin struct {
 	mu     sync.Mutex                // 保护 items 与存储写
 	items  map[string]*Reminder      // 内存索引：ID → 提醒
 	cancel context.CancelFunc        // 停止扫描 goroutine
+	// closed 卸载后置位：停止处理命令与写数据，避免清理后事件把提醒写回。
+	closed atomic.Bool
 }
 
 // NewPlugin 构造函数。
@@ -60,7 +63,7 @@ func NewPlugin() *ReminderPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.0.0"
+	p.Version = "1.0.1"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -113,8 +116,34 @@ func (p *ReminderPlugin) Awake(ctx context.Context, b bot.Bot) error {
 		return nil
 	}
 	scanCtx, cancel := context.WithCancel(context.Background())
+	p.mu.Lock()
 	p.cancel = cancel
+	p.mu.Unlock()
 	go p.scanLoop(scanCtx, b, p.checkInterval())
+	return nil
+}
+
+// OnUnload 卸载钩子：停止到点扫描 goroutine；被插件市场卸载时再清空全部提醒数据。
+// Bot 退出/重启（UnloadShutdown）只停 goroutine——提醒保留，重启后继续生效。
+func (p *ReminderPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	p.closed.Store(true)
+	p.mu.Lock()
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel = nil
+	}
+	p.mu.Unlock()
+	if reason != plugin.UnloadUninstall || p.store == nil {
+		return nil
+	}
+	p.mu.Lock()
+	if !p.store.Clear(ctx) {
+		p.mu.Unlock()
+		return fmt.Errorf("清理提醒数据失败")
+	}
+	p.items = make(map[string]*Reminder)
+	p.mu.Unlock()
+	p.Logger.Info("已清理提醒数据并停止扫描（卸载）")
 	return nil
 }
 
@@ -134,6 +163,9 @@ func (p *ReminderPlugin) scanLoop(ctx context.Context, b bot.Bot, interval time.
 
 // fireDue 推送所有到点的提醒。
 func (p *ReminderPlugin) fireDue(b bot.Bot) {
+	if p.closed.Load() { // 已卸载：不再推送
+		return
+	}
 	now := time.Now().Unix()
 
 	due := p.takeDue(now)
@@ -167,25 +199,24 @@ func (p *ReminderPlugin) takeDue(now int64) []*Reminder {
 
 // afterFire 推送后处理：循环提醒推进到下一次并持久化，一次性提醒删除存储。
 func (p *ReminderPlugin) afterFire(r *Reminder, now int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed.Load() { // 已卸载清理：不再写回
+		return
+	}
 	if r.Repeat != repeatNone {
 		next, ok := nextRepeat(r.NextAt, time.Unix(now, 0), r.Repeat)
 		if !ok {
 			p.Logger.Warn("循环提醒长期未运行已停用", "id", r.ID, "repeat", r.Repeat)
-			p.mu.Lock()
 			p.store.Del(context.Background(), "r:"+r.ID)
-			p.mu.Unlock()
 			return
 		}
 		r.NextAt = next
-		p.mu.Lock()
 		p.items[r.ID] = r
 		p.store.Set(context.Background(), "r:"+r.ID, r)
-		p.mu.Unlock()
 		return
 	}
-	p.mu.Lock()
 	p.store.Del(context.Background(), "r:"+r.ID)
-	p.mu.Unlock()
 }
 
 // sendReminder 推送一条提醒到会话。
@@ -212,7 +243,7 @@ func (p *ReminderPlugin) sendReminder(b bot.Bot, r *Reminder) {
 
 // OnGroupMsg 群聊消息事件。
 func (p *ReminderPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable || !cmd.Mention {
+	if !p.cfg.Enable || p.closed.Load() || !cmd.Mention {
 		return true, nil
 	}
 	switch cmd.Name {
@@ -230,7 +261,7 @@ func (p *ReminderPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.
 
 // OnFriendMsg 私聊消息事件（无需 @）。
 func (p *ReminderPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable {
+	if !p.cfg.Enable || p.closed.Load() {
 		return true, nil
 	}
 	switch cmd.Name {
@@ -310,6 +341,10 @@ func (p *ReminderPlugin) cmdSet(ctx context.Context, b bot.Bot, chat string, arg
 	}
 
 	p.mu.Lock()
+	if p.closed.Load() { // 已卸载清理：不再写回
+		p.mu.Unlock()
+		return
+	}
 	ok := p.store.Set(ctx, "r:"+r.ID, r)
 	if ok {
 		p.items[r.ID] = r
@@ -355,6 +390,10 @@ func (p *ReminderPlugin) cmdDel(ctx context.Context, b bot.Bot, chat string, arg
 	}
 	target := rs[n-1]
 	p.mu.Lock()
+	if p.closed.Load() { // 已卸载清理：不再写回
+		p.mu.Unlock()
+		return
+	}
 	delete(p.items, target.ID)
 	ok := p.store.Del(ctx, "r:"+target.ID)
 	p.mu.Unlock()

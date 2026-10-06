@@ -3,11 +3,20 @@
   "name": "音乐点歌",
   "description": "群聊@我或私聊 /点歌 关键词 搜歌点播，下载音频以文件发送，支持按钮平台点序号直接下载与翻页、多音源、歌词查询与 QQ 音乐卡片（数据来自 GD音乐台开放 API）",
   "author": "jeanhua",
-  "version": "1.4.0",
-  "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
-  "tags": ["娱乐", "音乐"],
+  "version": "1.4.1",
+  "platforms": [
+    "qq",
+    "feishu",
+    "telegram",
+    "discord",
+    "qqofficial"
+  ],
+  "tags": [
+    "娱乐",
+    "音乐"
+  ],
   "api_version": 1,
-  "min_framework": "4.6.0",
+  "min_framework": "4.7.7",
   "entry": {
     "constructor": "NewPlugin"
   },

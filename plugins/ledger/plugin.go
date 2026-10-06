@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanhua/AniaBot/common/bot"
@@ -52,6 +53,8 @@ type LedgerPlugin struct {
 	cfg   ledgerConfig
 	store storage.PersistentStorage // Clone("ledger") 后的数据命名空间
 	mu    sync.Mutex                // 保护账本的读改写
+	// closed 卸载清理后置位：不再处理命令与写数据，避免清理后事件把账目写回。
+	closed atomic.Bool
 }
 
 // NewPlugin 构造函数。
@@ -62,7 +65,7 @@ func NewPlugin() *LedgerPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.0.0"
+	p.Version = "1.0.1"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -83,9 +86,26 @@ func (p *LedgerPlugin) Start(ctx context.Context, cfg *viper.Viper) error {
 	return nil
 }
 
+// OnUnload 卸载钩子：被插件市场卸载时清空本插件的全部账本数据；
+// Bot 退出/重启（UnloadShutdown）不清理——账本保留，重启后继续记账。
+func (p *LedgerPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason != plugin.UnloadUninstall {
+		return nil
+	}
+	p.closed.Store(true)
+	if p.store == nil {
+		return nil
+	}
+	if !p.store.Clear(ctx) {
+		return fmt.Errorf("清理账本数据失败")
+	}
+	p.Logger.Info("已清理账本数据（卸载）")
+	return nil
+}
+
 // OnGroupMsg 群聊消息事件：群共享账本。
 func (p *LedgerPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable || !cmd.Mention {
+	if !p.cfg.Enable || p.closed.Load() || !cmd.Mention {
 		return true, nil
 	}
 	return p.handle(ctx, b, "g:"+msg.GroupId.String(), cmd, msg)
@@ -93,7 +113,7 @@ func (p *LedgerPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Co
 
 // OnFriendMsg 私聊消息事件：个人账本（无需 @）。
 func (p *LedgerPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable {
+	if !p.cfg.Enable || p.closed.Load() {
 		return true, nil
 	}
 	return p.handle(ctx, b, "u:"+msg.Sender.UserId.String(), cmd, msg)
@@ -139,6 +159,9 @@ func (p *LedgerPlugin) loadBook(ctx context.Context, key string) book {
 func (p *LedgerPlugin) saveBook(ctx context.Context, key string, bk *book) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.closed.Load() { // 已卸载清理：不再写回
+		return false
+	}
 	return p.store.Set(ctx, key, bk)
 }
 

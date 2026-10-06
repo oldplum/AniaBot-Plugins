@@ -218,6 +218,7 @@ QQ 不支持——除非确定目标平台支持，否则别用。
 
 ```
 ConfigSchema() → DI 注入 → Start → StartCron → Awake → 事件循环（OnGroupMsg/OnFriendMsg/Notice…）
+                                                              → OnUnload（退出/重启或市场卸载前一次）
 ```
 
 - `Start(ctx, cfg *viper.Viper)`：初始化（建集合、读配置、起后台 goroutine 如 eew 的推送循环）。
@@ -225,6 +226,16 @@ ConfigSchema() → DI 注入 → Start → StartCron → Awake → 事件循环�
   表达式非法会返回 err，记日志并返回）。`b` 可在闭包里发消息（eew 范例）。
 - `Awake(ctx, b)`：全部插件 `Start` 完成后调用，适合打“就绪”日志/依赖别插件数据的初始化
   （`whitelist` 必须在 `Awake` 读拦截器名单——`Start` 按 Order 执行时对方还没初始化）。
+- `OnUnload(ctx, reason)`（可选接口 `plugin.UnloadEvent`）：卸载前清理钩子，每个插件最多一次。
+  `reason` 为 `plugin.UnloadShutdown`（Bot 退出/重启，全部插件都收到）或
+  `plugin.UnloadUninstall`（市场卸载，仅被卸载的插件收到）。要点：
+  - **只应在 `UnloadUninstall` 删除持久化数据**；`UnloadShutdown` 插件重启后还会重新加载，删了就丢。
+  - 适合顺带做的事：取消后台 goroutine（`cancel()`）、清空内存缓存（有状态插件务必做，
+    卸载后不应有残留状态）、关闭连接。
+  - 钩子**可能与运行期事件并发执行**：实现需自行保证并发安全；清理后一般要置一个
+    `closed atomic.Bool` 闸门，让事件处理/后台循环提前返回，避免清理后又被写回（见 groupdigest）。
+  - 超时 1 分钟，出错/panic 只记日志、不阻断卸载；`ctx` 会取消，别做无限等待。
+  - **用到本接口必须把 `plugin.json` 的 `min_framework` 抬到含该 API 的版本**（当前为 `4.7.7`）。
 - 注入字段（框架 DI 自动填，开箱即用）：
   - `p.Logger *slog.Logger`：结构化日志，`p.Logger.Info("...", "key", val)`。
   - `p.Storage`：缓存 KV + 队列（memory/redis），支持 TTL：`SetString(ctx,k,v)` /

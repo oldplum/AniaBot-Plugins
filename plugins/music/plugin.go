@@ -76,9 +76,26 @@ func NewPlugin() *MusicPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup | plugininfo.ShowForFriend
 	p.Author = "jeanhua"
-	p.Version = "1.4.0"
+	p.Version = "1.4.1"
 	p.Order = plugin.LevelNormal
 	return p
+}
+
+// OnUnload 卸载钩子：被插件市场卸载时清空内存中的选歌会话、按钮索引、
+// 冷却与点播标记；Bot 退出/重启（UnloadShutdown）无需处理——这些状态
+// 本就在内存、随进程结束释放。
+func (p *MusicPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	if reason != plugin.UnloadUninstall {
+		return nil
+	}
+	p.mu.Lock()
+	p.sessions = make(map[string]*searchSession)
+	p.byMsg = make(map[message.QID]*searchSession)
+	p.cooldown = make(map[string]time.Time)
+	p.inflight = make(map[string]time.Time)
+	p.mu.Unlock()
+	p.Logger.Info("已清理点歌会话缓存（卸载）")
+	return nil
 }
 
 // Start 初始化：配置兜底、构建 API 客户端与全局限流器。

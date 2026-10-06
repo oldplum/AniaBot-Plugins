@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeanhua/AniaBot/common/bot"
@@ -79,6 +80,8 @@ type GamesPlugin struct {
 	mu    sync.Mutex
 	guess map[string]*guessGame   // 群ID → 猜数字对局（内存态，重启作废）
 	g24   map[string]*game24State // 群ID → 24 点对局（内存态）
+	// closed 卸载清理后置位：不再处理命令与写数据，避免清理后事件把胜场写回。
+	closed atomic.Bool
 }
 
 // NewPlugin 构造函数。
@@ -92,7 +95,7 @@ func NewPlugin() *GamesPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup
 	p.Author = "jeanhua"
-	p.Version = "1.0.0"
+	p.Version = "1.0.1"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -115,9 +118,27 @@ func (p *GamesPlugin) Start(ctx context.Context, cfg *viper.Viper) error {
 	return nil
 }
 
+// OnUnload 卸载钩子：被插件市场卸载时清空 24 点胜场数据与进行中的对局缓存；
+// Bot 退出/重启（UnloadShutdown）只清内存对局——胜场数据重启后继续使用。
+func (p *GamesPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	p.closed.Store(true)
+	p.mu.Lock()
+	p.guess = make(map[string]*guessGame)
+	p.g24 = make(map[string]*game24State)
+	p.mu.Unlock()
+	if reason != plugin.UnloadUninstall || p.store == nil {
+		return nil
+	}
+	if !p.store.Clear(ctx) {
+		return fmt.Errorf("清理 24 点胜场数据失败")
+	}
+	p.Logger.Info("已清理小游戏数据（卸载）")
+	return nil
+}
+
 // OnGroupMsg 群聊消息事件。
 func (p *GamesPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
-	if !p.cfg.Enable || !cmd.Mention {
+	if !p.cfg.Enable || p.closed.Load() || !cmd.Mention {
 		return true, nil
 	}
 	gid := msg.GroupId.String()
@@ -423,8 +444,11 @@ func (p *GamesPlugin) addWin24(ctx context.Context, gid string, user message.QID
 	}
 	scores[user.String()] = e
 	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed.Load() { // 已卸载清理：不再写回
+		return
+	}
 	p.store.Set(ctx, "w:"+gid, scores)
-	p.mu.Unlock()
 }
 
 // show24Board 展示胜场榜。

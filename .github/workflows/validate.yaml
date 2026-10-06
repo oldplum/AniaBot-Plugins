@@ -33,7 +33,7 @@ jobs:
       - name: 检出 AniaBot 源码（编译校验用）
         uses: actions/checkout@v4
         with:
-          repository: jeanhua/AniaBot
+          repository: AniaBot-Project/AniaBot
           path: aniabot
 
       - name: 安装 Go

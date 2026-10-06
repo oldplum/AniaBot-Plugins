@@ -83,3 +83,7 @@
 
 - 实时地震预警与气象数据：[Wolfx Project](https://wolfx.jp/) 开放 API
 - 地震速报目录：[中国地震台网 (CENC)](https://www.ceic.ac.cn/)
+
+## 卸载说明
+
+- 从插件市场卸载或 Bot 退出/重启时，会取消连接管理与配置监视任务、断开 WebSocket 并释放去重缓存，不留残留连接

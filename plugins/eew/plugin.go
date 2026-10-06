@@ -233,6 +233,23 @@ func (p *EEWPlugin) Awake(ctx context.Context, bot bot.Bot) error {
 	return nil
 }
 
+// OnUnload 卸载钩子：取消连接管理与配置监视 goroutine，关闭 WebSocket 连接
+// 并清空去重缓存（纯内存数据，无需区分卸载原因）。
+func (p *EEWPlugin) OnUnload(ctx context.Context, reason plugin.UnloadReason) error {
+	p.mu.Lock()
+	cancel := p.cancelConn
+	p.cancelConn = nil
+	p.connected = false
+	p.runningMode = ""
+	p.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	p.pushedReports.Clear()
+	p.Logger.Info("已停止地震预警连接与监视（卸载）", "reason", reason)
+	return nil
+}
+
 func (p *EEWPlugin) watchConfigLoop(ctx context.Context, bot bot.Bot) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
