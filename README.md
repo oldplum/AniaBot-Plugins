@@ -35,7 +35,7 @@ index.json        # 聚合索引（由 scripts/build-index.sh 生成，CI 在合
 | [antiwithdrawal](plugins/antiwithdrawal) | 防撤回 | jeanhua | 1.0.1 | QQ 群防撤回：缓存每个群最近 100 条消息，/explore 以合并转发回顾最近 n 条，撤回的消息也能查看 |
 | [checkin](plugins/checkin) | 签到打卡 | jeanhua | 1.0.1 | 每日签到赚积分：随机积分+今日运势、连续签到加成、积分查询与排行榜，数据持久化重启不丢 |
 | [dicegirl](plugins/dicegirl) | 骰娘 | jeanhua | 1.0.0 | TRPG 骰娘：支持骰子表达式 /r、COC 7e 技能检定 /ra、理智检定 /sc 与今日人品 /jrrp，可直接发 .r 等裸指令 |
-| [eew](plugins/eew) | 地震预警与气象速报 | oldplum | 1.2.2 | 实时推送全国地震预警与速报，支持震中距与本地烈度估算、定时天气排行播报及 Cloudflare 自动降级 |
+| [eew](plugins/eew) | 地震预警与气象速报 | oldplum | 1.3.1 | 实时推送全国地震预警与速报，支持震中距与本地烈度估算、定时天气排行播报及 Cloudflare 自动降级 |
 | [games](plugins/games) | 群小游戏 | jeanhua | 1.0.1 | 群聊多人互动游戏合集：猜数字（自动缩范围）、24 点抢答（出题保证有解、表达式分数精确验算、胜场排行榜）、随机选择帮你做决定 |
 | [groupdashboard](plugins/groupdashboard) | 群聊看板 | jeanhua | 1.0.1 | 群消息达到阈值后自动用 AI 生成「群聊日常分析看板」：话题焦点、群友画像、今日金句、氛围报告，渲染成精美长图发到群，支持薄荷看板/杂志海报/暗夜霓虹三种风格 |
 | [groupdigest](plugins/groupdigest) | 群刊 | jeanhua | 1.3.2 | 群消息达到阈值后自动用 AI 生成群刊，可发送 Markdown 文件或渲染图片 |
