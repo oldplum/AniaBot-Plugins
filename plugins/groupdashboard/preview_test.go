@@ -1,10 +1,13 @@
 package groupdashboard
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 )
 
 // TestGeneratePreview 本地预览用：PREVIEW=1 go test ./plugins/groupdashboard -run TestGeneratePreview
@@ -92,6 +95,10 @@ func TestGeneratePreview(t *testing.T) {
 		EditorComment: "今晚的群像火锅沸腾：一半人在干饭，一半人在 debug，而分号为这一切画上了句号。明天见！",
 	}
 	stats := buildStats(msgs)
+	// 走真实链路：插件侧下载头像并内联为 data URI（与 sendDashboardImage 一致）
+	p := &GroupDashboardPlugin{}
+	p.RestyClient = resty.New()
+	p.inlineAvatarData(context.Background(), stats)
 	for _, style := range []string{styleMint, styleMagazine, styleDark} {
 		html, err := renderDashboardHTML(report, stats, "AniaBot 交流群", style)
 		if err != nil {

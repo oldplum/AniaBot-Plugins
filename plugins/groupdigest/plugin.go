@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/textproto"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/jeanhua/AniaBot/common/plugininfo"
 	"github.com/jeanhua/AniaBot/common/storage"
 	"github.com/spf13/viper"
+	"golang.org/x/net/http/httpguts"
 )
 
 // persistEvery 每累计多少条消息把群状态落盘一次；重启最多丢失最近几条。
@@ -89,7 +91,7 @@ func NewPlugin() *GroupDigestPlugin {
 	p.AdminOnly = false
 	p.ShowFor = plugininfo.ShowForGroup
 	p.Author = "jeanhua"
-	p.Version = "1.3.2"
+	p.Version = "1.3.3"
 	p.Order = plugin.LevelNormal
 	return p
 }
@@ -129,6 +131,14 @@ func (p *GroupDigestPlugin) Start(ctx context.Context, cfg *viper.Viper) error {
 	// 群刊生成时跟随模型 API 默认，输出长度不受主对话 max_token 限制。
 	opts := []aichat.LLMClientOption{
 		aichat.WithAPIFormat(cfg.GetString("plugin.ai_chat_bot.api_format")),
+	}
+	// 继承 AI 对话插件的自定义请求头（plugin.ai_chat_bot.headers）：部分网关
+	// （如 opencode）要求携带 x-opencode-session 等路由头，主对话配置了就一并附加
+	if headers, invalid := parseHeaderLines(cfg.GetStringSlice("plugin.ai_chat_bot.headers")); len(headers) > 0 {
+		opts = append(opts, aichat.WithHeaders(headers))
+		if len(invalid) > 0 {
+			p.Logger.Warn("AI 对话插件自定义请求头存在非法行，已跳过", "lines", invalid)
+		}
 	}
 
 	chat, err := aichat.NewChatBot(baseURL, apiKey, model, p.cfg.Prompt, 0, nil, nil,
@@ -599,6 +609,35 @@ func (st *groupState) finish(now time.Time) {
 	st.generating = false
 	st.lastGen = now
 	st.mu.Unlock()
+}
+
+// parseHeaderLines 解析 "Name: Value" / "Name=Value" 形式的自定义请求头行，
+// 与 AI 对话插件的解析规则一致：空行忽略；缺分隔符、名字为空或名字/值含非法
+// 字符的行跳过并返回 1 基行号（只记行号不记内容，避免把误填的凭据写进日志）；
+// 名字统一规范化（X-Custom-Token），大小写不同视为同一条，重复以最后一行为准。
+func parseHeaderLines(lines []string) (headers map[string]string, invalidLines []int) {
+	for i, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		idx := strings.IndexAny(line, ":=")
+		if idx <= 0 {
+			invalidLines = append(invalidLines, i+1)
+			continue
+		}
+		name := strings.TrimSpace(line[:idx])
+		value := strings.TrimSpace(line[idx+1:])
+		if !httpguts.ValidHeaderFieldName(name) || !httpguts.ValidHeaderFieldValue(value) {
+			invalidLines = append(invalidLines, i+1)
+			continue
+		}
+		if headers == nil {
+			headers = make(map[string]string, len(lines))
+		}
+		headers[textproto.CanonicalMIMEHeaderKey(name)] = value
+	}
+	return headers, invalidLines
 }
 
 // normalizeGroupIDs 规范化作用群列表：QQ 纯数字统一加 qq: 前缀，其余平台 ID 原样保留。

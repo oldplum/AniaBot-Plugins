@@ -55,6 +55,7 @@
 ## 依赖
 
 - **AI 对话插件**：群刊只复用其**连接信息**——`plugin.ai_chat_bot.base_url` / `api_key` / `model` / `api_format`。
+  自定义请求头（`plugin.ai_chat_bot.headers`，如网关要求的 `x-opencode-session`）也会一并附加到群刊请求；
   其余参数（重试、备用模型、采样、输出上限、Prompt 缓存等）**一律不继承**：
   群刊生成时跟随模型 API 默认，输出长度不受主对话 `max_token` 限制。
 - 未配置 API Key 时插件仍可安装运行，但不会生成群刊（日志会提示）

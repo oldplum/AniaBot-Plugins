@@ -253,3 +253,36 @@ func TestOnUnload(t *testing.T) {
 		t.Fatal("清理后不应再写回缓存")
 	}
 }
+
+func TestParseHeaderLines(t *testing.T) {
+	headers, invalid := parseHeaderLines([]string{
+		"X-Opencode-Session: ania-bot",
+		"Authorization: Bearer a=b",
+		"user-agent=MyGateway/1.0",
+		"", // 空行忽略
+		"no-separator",
+		":empty-name",
+		"Bad Name: value",
+	})
+	want := map[string]string{
+		"X-Opencode-Session": "ania-bot",
+		"Authorization":      "Bearer a=b", // 值可包含另一种分隔符
+		"User-Agent":         "MyGateway/1.0",
+	}
+	for k, v := range want {
+		if headers[k] != v {
+			t.Errorf("header %s = %q, want %q", k, headers[k], v)
+		}
+	}
+	if len(headers) != len(want) {
+		t.Errorf("期望 %d 个头，实际 %d（%v）", len(want), len(headers), headers)
+	}
+	if len(invalid) != 3 {
+		t.Errorf("期望 3 个非法行，实际 %v", invalid)
+	}
+	for i, line := range invalid {
+		if want := []int{5, 6, 7}[i]; line != want {
+			t.Errorf("非法行号 = %d, want %d", line, want)
+		}
+	}
+}

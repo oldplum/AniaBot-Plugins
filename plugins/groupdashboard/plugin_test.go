@@ -2,14 +2,18 @@ package groupdashboard
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/jeanhua/AniaBot/common/model/command"
 	"github.com/jeanhua/AniaBot/common/model/message"
 	"github.com/jeanhua/AniaBot/common/plugin"
@@ -212,7 +216,7 @@ func TestBuildStats(t *testing.T) {
 	if s.NickCounts["张三"] != 2 {
 		t.Errorf("张三条数不符: %d", s.NickCounts["张三"])
 	}
-	if s.AvatarByNick["张三"] != "https://q1.qlogo.cn/g?nk=10001&s=100" {
+	if s.AvatarByNick["张三"] != "https://q1.qlogo.cn/g?b=qq&nk=10001&s=100" {
 		t.Errorf("张三头像不符: %q", s.AvatarByNick["张三"])
 	}
 	if _, ok := s.AvatarByNick["匿名"]; ok {
@@ -232,7 +236,7 @@ func TestBuildStats(t *testing.T) {
 }
 
 func TestQQAvatarURL(t *testing.T) {
-	if got := qqAvatarURL("qq:12345"); got != "https://q1.qlogo.cn/g?nk=12345&s=100" {
+	if got := qqAvatarURL("qq:12345"); got != "https://q1.qlogo.cn/g?b=qq&nk=12345&s=100" {
 		t.Errorf("QQ 头像不符: %q", got)
 	}
 	for _, uid := range []string{"", "fs:oc_x", "tg:123", "qo:ABC", "qq:", "qq:12ab"} {
@@ -326,6 +330,62 @@ func TestRenderDashboardHTMLEscapes(t *testing.T) {
 	}
 	if strings.Contains(html, "<script>alert") {
 		t.Errorf("话题标题未被转义，存在注入风险")
+	}
+}
+
+func TestInlineAvatarData(t *testing.T) {
+	img := []byte("\xff\xd8\xff\xe0fake-jpeg")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.RawQuery, "nk=10001"):
+			w.Header().Set("Content-Type", "image/jpeg")
+			_, _ = w.Write(img)
+		case strings.Contains(r.URL.RawQuery, "nk=10002"):
+			// 非图片响应（如错误页）应被丢弃，保留原 URL
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte("boom"))
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+
+	p := &GroupDashboardPlugin{}
+	p.RestyClient = resty.New()
+	stats := &groupStats{AvatarByNick: map[string]string{
+		"张三": srv.URL + "/avatar?nk=10001",
+		"李四": srv.URL + "/avatar?nk=10002",
+		"王五": srv.URL + "/avatar?nk=10003",
+	}}
+	p.inlineAvatarData(context.Background(), stats)
+
+	wantPrefix := "data:image/jpeg;base64,"
+	if got := stats.AvatarByNick["张三"]; !strings.HasPrefix(got, wantPrefix) {
+		t.Errorf("张三头像应内联为 data URI，实际 %q", got)
+	}
+	if got := stats.AvatarByNick["李四"]; got != srv.URL+"/avatar?nk=10002" {
+		t.Errorf("非图片响应应保留原 URL，实际 %q", got)
+	}
+	if got := stats.AvatarByNick["王五"]; got != srv.URL+"/avatar?nk=10003" {
+		t.Errorf("下载失败应保留原 URL，实际 %q", got)
+	}
+
+	// 内联后的 data URI 经模板渲染不能被 html/template 过滤成 #ZgotmplZ
+	dataURI, _ := base64.StdEncoding.DecodeString(strings.TrimPrefix(stats.AvatarByNick["张三"], wantPrefix))
+	if string(dataURI) != string(img) {
+		t.Errorf("内联数据与源图不符")
+	}
+	stats.AvatarByNick["张三"] = wantPrefix + base64.StdEncoding.EncodeToString(img)
+	report := sampleReport()
+	html, err := renderDashboardHTML(report, stats, "", styleMint)
+	if err != nil {
+		t.Fatalf("渲染失败: %v", err)
+	}
+	if !strings.Contains(html, "data:image/jpeg;base64,") {
+		t.Errorf("data URI 被 html/template 过滤，头像无法显示")
+	}
+	if strings.Contains(html, "ZgotmplZ") {
+		t.Errorf("渲染结果含 #ZgotmplZ，说明 URL 类型不对")
 	}
 }
 
@@ -461,5 +521,38 @@ func TestOnUnload(t *testing.T) {
 	p.persistState("qq:100", st)
 	if store.Has(ctx, "g:qq:100") {
 		t.Fatal("清理后不应再写回缓存")
+	}
+}
+
+func TestParseHeaderLines(t *testing.T) {
+	headers, invalid := parseHeaderLines([]string{
+		"X-Opencode-Session: ania-bot",
+		"Authorization: Bearer a=b",
+		"user-agent=MyGateway/1.0",
+		"", // 空行忽略
+		"no-separator",
+		":empty-name",
+		"Bad Name: value",
+	})
+	want := map[string]string{
+		"X-Opencode-Session": "ania-bot",
+		"Authorization":      "Bearer a=b", // 值可包含另一种分隔符
+		"User-Agent":         "MyGateway/1.0",
+	}
+	for k, v := range want {
+		if headers[k] != v {
+			t.Errorf("header %s = %q, want %q", k, headers[k], v)
+		}
+	}
+	if len(headers) != len(want) {
+		t.Errorf("期望 %d 个头，实际 %d（%v）", len(want), len(headers), headers)
+	}
+	if len(invalid) != 3 {
+		t.Errorf("期望 3 个非法行，实际 %v", invalid)
+	}
+	for i, line := range invalid {
+		if want := []int{5, 6, 7}[i]; line != want {
+			t.Errorf("非法行号 = %d, want %d", line, want)
+		}
 	}
 }

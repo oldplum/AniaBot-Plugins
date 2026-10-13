@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jeanhua/AniaBot/bot/component/aichat"
@@ -228,6 +230,11 @@ func (p *GroupDashboardPlugin) sendDashboardImage(ctx context.Context, b bot.Bot
 	}
 	renderURL := strings.TrimRight(baseURL, "/") + "/render-html"
 
+	// 头像在插件侧预取并内联为 data URI：渲染容器不一定能访问外网，
+	// 也可能在头像加载完成前就截图，内联后头像显示不再依赖渲染端网络
+	p.logAvatarCoverage(report, stats)
+	p.inlineAvatarData(ctx, stats)
+
 	html, err := renderDashboardHTML(report, stats, groupName, p.cfg.Style)
 	if err != nil {
 		return fmt.Errorf("渲染看板失败: %w", err)
@@ -260,6 +267,111 @@ func (p *GroupDashboardPlugin) sendDashboardImage(ctx context.Context, b bot.Bot
 		return errors.New("发送看板图片失败")
 	}
 	return nil
+}
+
+// 头像内联参数：单个下载超时、并发数、单张上限（防止异常大图撑爆 HTML）。
+const (
+	avatarFetchTimeout = 8 * time.Second
+	avatarFetchWorkers = 4
+	maxAvatarBytes     = 512 * 1024
+)
+
+// inlineAvatarData 在渲染看板前于插件侧预取头像并内联为 data URI，就地更新 stats.AvatarByNick。
+// 看板图由 md2img 容器渲染，容器内浏览器可能访问不了外网（下拉取失败时模板会退回首字圆标）；
+// 改由插件（宿主网络）下载后内联，任意渲染环境下头像都能显示。下载失败的条目保留原 URL。
+func (p *GroupDashboardPlugin) inlineAvatarData(ctx context.Context, stats *groupStats) {
+	if len(stats.AvatarByNick) == 0 {
+		return
+	}
+	nicks := make([]string, 0, len(stats.AvatarByNick))
+	urls := make([]string, 0, len(stats.AvatarByNick))
+	for nick, url := range stats.AvatarByNick {
+		nicks = append(nicks, nick)
+		urls = append(urls, url)
+	}
+	dataURIs := make([]string, len(urls))
+	sem := make(chan struct{}, avatarFetchWorkers)
+	var wg sync.WaitGroup
+	for i, url := range urls {
+		wg.Add(1)
+		go func(i int, url string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			dataURIs[i] = p.fetchAvatarDataURI(ctx, url)
+		}(i, url)
+	}
+	wg.Wait()
+	for i, nick := range nicks {
+		if dataURIs[i] != "" {
+			stats.AvatarByNick[nick] = dataURIs[i]
+		}
+	}
+}
+
+// fetchAvatarDataURI 下载头像并编码为 data URI；失败返回空串（调用方保留原 URL）。
+func (p *GroupDashboardPlugin) fetchAvatarDataURI(ctx context.Context, url string) string {
+	if p.RestyClient == nil {
+		return ""
+	}
+	fetchCtx, cancel := context.WithTimeout(ctx, avatarFetchTimeout)
+	defer cancel()
+	resp, err := p.RestyClient.R().
+		SetContext(fetchCtx).
+		Get(url)
+	if err != nil || !resp.IsSuccess() {
+		return ""
+	}
+	body := resp.Body()
+	if len(body) == 0 || len(body) > maxAvatarBytes {
+		return ""
+	}
+	// 按内容嗅探真实类型（不信任响应头），非图片内容直接放弃
+	mime := http.DetectContentType(body)
+	if !strings.HasPrefix(mime, "image/") {
+		return ""
+	}
+	if i := strings.IndexByte(mime, ';'); i >= 0 {
+		mime = strings.TrimSpace(mime[:i])
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(body)
+}
+
+// logAvatarCoverage 记录报告昵称与已收集 QQ 头像的匹配情况；头像不显示时用它定位
+// 是「收集不到」（collected=0，UserID 无 qq: 前缀或非 QQ 平台）还是「昵称对不上」（unmatched 非空）。
+func (p *GroupDashboardPlugin) logAvatarCoverage(report *digestReport, stats *groupStats) {
+	if p.Logger == nil {
+		return
+	}
+	var names []string
+	for _, t := range report.Topics {
+		for _, q := range t.Quotes {
+			names = append(names, q.Nickname)
+		}
+	}
+	for _, m := range report.Members {
+		names = append(names, m.Nickname)
+	}
+	for _, q := range report.Quotes {
+		names = append(names, q.Nickname)
+	}
+	seen := make(map[string]struct{}, len(names))
+	total, matched := 0, 0
+	var unmatched []string
+	for _, name := range names {
+		nick := strings.TrimSpace(name)
+		if _, ok := seen[nick]; ok {
+			continue
+		}
+		seen[nick] = struct{}{}
+		total++
+		if stats.AvatarByNick[nick] != "" {
+			matched++
+		} else if len(unmatched) < 5 {
+			unmatched = append(unmatched, nick)
+		}
+	}
+	p.Logger.Info("看板头像匹配情况", "report_nicks", total, "matched", matched, "collected", len(stats.AvatarByNick), "unmatched", unmatched)
 }
 
 // notifyError 记录失败日志并简短告知群成员。

@@ -1,0 +1,25 @@
+{
+  "id": "videoparse",
+  "name": "视频解析",
+  "description": "群里发抖音/快手/B站分享链接自动解析并发送无水印原视频，支持命令手动触发、群聊范围限制与体积上限",
+  "author": "jeanhua",
+  "version": "1.0.0",
+  "platforms": [
+    "qq",
+    "qqofficial",
+    "telegram",
+    "discord",
+    "weixin"
+  ],
+  "tags": [
+    "视频",
+    "工具",
+    "解析"
+  ],
+  "api_version": 1,
+  "min_framework": "4.7.7",
+  "entry": {
+    "constructor": "NewPlugin"
+  },
+  "icon": ""
+}

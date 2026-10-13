@@ -118,7 +118,7 @@ func qqAvatarURL(userID string) string {
 			return ""
 		}
 	}
-	return "https://q1.qlogo.cn/g?nk=" + num + "&s=100"
+	return "https://q1.qlogo.cn/g?b=qq&nk=" + num + "&s=100"
 }
 
 // avatarPalette 头像兜底底色（按昵称哈希取色，无头像时显示首字圆标）。
@@ -132,14 +132,15 @@ func avatarColor(nick string) string {
 }
 
 // avatarView 头像展示视图：有 URL 用图片（加载失败回退首字圆标），否则纯圆标。
+// URL 可能是内联的 data URI，必须用 template.URL 类型，否则会被 html/template 过滤成 #ZgotmplZ。
 type avatarView struct {
-	URL     string
+	URL     template.URL
 	Initial string
 	Color   string
 }
 
 func newAvatarView(nick, url string) avatarView {
-	v := avatarView{URL: url, Color: avatarColor(nick)}
+	v := avatarView{URL: template.URL(url), Color: avatarColor(nick)}
 	if r := []rune(nick); len(r) > 0 {
 		v.Initial = string(r[0])
 	}
