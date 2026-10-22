@@ -3,11 +3,11 @@
   "name": "白名单管理",
   "description": "管理员用 /wl 命令管理黑白名单：增删查群聊/私聊名单、切换名单模式，改动即时生效；与内置「请求拦截插件」共用名单",
   "author": "disillusion",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "platforms": ["qq", "feishu", "telegram", "discord", "qqofficial"],
   "tags": ["群管理", "名单", "拦截", "管理员"],
   "api_version": 1,
-  "min_framework": "4.6.4",
+  "min_framework": "4.7.10",
   "entry": {
     "constructor": "NewPlugin"
   },

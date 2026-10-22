@@ -306,7 +306,7 @@ func (p *LedgerPlugin) cmdDel(ctx context.Context, b bot.Bot, chat string, args 
 		p.reply(b, chat, "", fmt.Sprintf("本月没有流水号 %d 的记录", seq))
 		return
 	}
-	if bk.Records[idx].UserID != msg.Sender.UserId.String() && msg.Sender.UserId != p.SystemConfig.AdminId {
+	if bk.Records[idx].UserID != msg.Sender.UserId.String() && !p.SystemConfig.IsAdmin(msg.Sender.UserId) {
 		p.reply(b, chat, msg.Sender.UserId, "只能删除自己记的账（管理员可删除任意记录）")
 		return
 	}
@@ -325,7 +325,7 @@ func (p *LedgerPlugin) cmdClear(ctx context.Context, b bot.Bot, chat string, msg
 		p.reply(b, chat, "", "存储当前不可用")
 		return
 	}
-	if strings.HasPrefix(chat, "g:") && msg.Sender.UserId != p.SystemConfig.AdminId {
+	if strings.HasPrefix(chat, "g:") && !p.SystemConfig.IsAdmin(msg.Sender.UserId) {
 		p.reply(b, chat, msg.Sender.UserId, "清空本月账本需要管理员权限")
 		return
 	}

@@ -73,7 +73,7 @@ func (p *WhitelistPlugin) OnGroupMsg(ctx context.Context, b bot.Bot, cmd command
 	}
 	// /wl 命令：仅管理员、且需 @ 机器人（与框架内其他群聊命令一致）
 	if cmd.Name == "wl" && cmd.Mention {
-		if msg.Sender.UserId != p.SystemConfig.AdminId {
+		if !p.SystemConfig.IsAdmin(msg.Sender.UserId) {
 			p.reply(b, msg.GroupId, true, msg.Sender.UserId, "只有管理员能管理白名单")
 			return false, nil
 		}
@@ -88,7 +88,7 @@ func (p *WhitelistPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd comman
 		return true, nil
 	}
 	if cmd.Name == "wl" {
-		if msg.Sender.UserId != p.SystemConfig.AdminId {
+		if !p.SystemConfig.IsAdmin(msg.Sender.UserId) {
 			p.reply(b, msg.Sender.UserId, false, msg.Sender.UserId, "只有管理员能管理白名单")
 			return false, nil
 		}
@@ -106,7 +106,7 @@ func (p *WhitelistPlugin) gate(b bot.Bot, id message.QID, isGroup bool, msg mess
 	if !p.cfg.BlockAll || !p.store.Enabled() {
 		return true, nil
 	}
-	if msg.Sender.UserId == p.SystemConfig.AdminId {
+	if p.SystemConfig.IsAdmin(msg.Sender.UserId) {
 		return true, nil
 	}
 

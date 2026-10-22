@@ -41,7 +41,7 @@ func newTestPlugin(t *testing.T) (*WhitelistPlugin, *fakeEditor) {
 	p := NewPlugin()
 	p.Logger = slog.Default()
 	p.cfg = whitelistConfig{Enable: true, BlockAll: true}
-	p.SystemConfig = plugin.SystemConfig{AdminId: message.FromString("qq:999")}
+	p.SystemConfig = plugin.SystemConfig{AdminIds: []message.QID{message.FromString("qq:999")}}
 	ed := newFakeEditor()
 	p.ConfigEditor = ed
 	// 共享 store 是包级全局，逐个测试重置，避免互相串状态
@@ -206,7 +206,7 @@ func TestReadListHandlesAnySlice(t *testing.T) {
 func TestGateBlocksNonWhitelisted(t *testing.T) {
 	p, _ := newTestPlugin(t)
 	stranger := message.FromString("qq:111")
-	admin := p.SystemConfig.AdminId
+	admin := message.FromString("qq:999")
 
 	msg := message.Message{Sender: message.MessageSender{UserId: stranger}}
 	if pass, _ := p.gate(nil, message.FromString("qq:888"), true, msg); pass {
@@ -222,6 +222,21 @@ func TestGateBlocksNonWhitelisted(t *testing.T) {
 	p.handleCommand(wlCmd("add", "qq:888"), "", true)
 	if pass, _ := p.gate(nil, message.FromString("qq:888"), true, msg); !pass {
 		t.Fatal("已在白名单的群应放行")
+	}
+}
+
+// TestGateAllowsEveryAdmin 多个管理员时每个管理员都恒放行（bot.admin_ids 可配置多个）。
+func TestGateAllowsEveryAdmin(t *testing.T) {
+	p, _ := newTestPlugin(t)
+	p.SystemConfig.AdminIds = append(p.SystemConfig.AdminIds, message.FromString("qq:998"))
+	if len(p.SystemConfig.AdminIds) < 2 {
+		t.Fatal("测试需要至少两个管理员")
+	}
+	for _, admin := range p.SystemConfig.AdminIds {
+		adminMsg := message.Message{Sender: message.MessageSender{UserId: admin}}
+		if pass, _ := p.gate(nil, message.FromString("qq:888"), true, adminMsg); !pass {
+			t.Fatalf("管理员 %s 必须恒放行，否则名单配错时会把自己关在门外", admin)
+		}
 	}
 }
 

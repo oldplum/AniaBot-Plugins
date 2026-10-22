@@ -245,9 +245,10 @@ ConfigSchema() → DI 注入 → Start → StartCron → Awake → 事件循环�
     `SQLPersistentStorage`，`storage.EnsureTables(...)` 建 `ania_` 前缀表——**探测/建表失败只记日志降级，
     必须留 KV 兜底，绝不能阻塞 `Start`**。
   - `p.RestyClient *resty.Client`：发 HTTP 优先用它（统一超时/代理），别 `http.DefaultClient`。
-  - `p.SystemConfig.AdminId`：管理员 ID。管理员鉴权手写：
-    `if msg.Sender.UserId != p.SystemConfig.AdminId { 回一句"仅管理员可用"; return false, nil }`
-    （`whitelist` 范例；注意**拦截器要给管理员留门**，否则配错名单把自己锁死）。
+  - `p.SystemConfig`：管理员列表（`bot.admin_ids` 可配置多个）。鉴权用 `IsAdmin`：
+    `if !p.SystemConfig.IsAdmin(msg.Sender.UserId) { 回一句"仅管理员可用"; return false, nil }`
+    （`whitelist` 范例；注意**拦截器要给每个管理员留门**，否则配错名单把自己锁死）。
+    用到该 API 的插件 `min_framework` 至少 `4.7.10`；`AdminId` 仅为兼容旧插件保留的首位管理员。
   - `p.ConfigEditor`：读写框架配置中心（点分键，落 DB，重启生效），**可能为 nil，用前判空**。
     普通插件读配置不需要它（第 8 节的 `ConfigSchema` 已够用），只有改别插件配置的插件（如 `whitelist`）才用。
 

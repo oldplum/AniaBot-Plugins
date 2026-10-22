@@ -174,7 +174,7 @@ func (p *SetuPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Com
 }
 
 func (p *SetuPlugin) isAdmin(msg message.Message) bool {
-	return p.SystemConfig.AdminId != "" && msg.Sender.UserId == p.SystemConfig.AdminId
+	return p.SystemConfig.IsAdmin(msg.Sender.UserId)
 }
 
 // handleSetu /setu 主流程：子命令 → 放行 → 限流 → 搜图 → 发送。

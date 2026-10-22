@@ -178,7 +178,7 @@ func (p *PixivPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Co
 }
 
 func (p *PixivPlugin) isAdmin(msg message.Message) bool {
-	return p.SystemConfig.AdminId != "" && msg.Sender.UserId == p.SystemConfig.AdminId
+	return p.SystemConfig.IsAdmin(msg.Sender.UserId)
 }
 
 // handlePixiv /pixiv 主流程：子命令分发，真实功能统一走 登录校验→放行→限流。

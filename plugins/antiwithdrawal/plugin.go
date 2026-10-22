@@ -167,7 +167,7 @@ func isTimeout(timestamp uint) bool {
 
 func (p *AntiWithdrawalPlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.Command, msg message.Message) (bool, error) {
 	qb, _ := b.(bot.QQ)
-	if cmd.Name == "explore" && msg.Sender.UserId == p.SystemConfig.AdminId {
+	if cmd.Name == "explore" && p.SystemConfig.IsAdmin(msg.Sender.UserId) {
 		if len(cmd.Args) == 0 {
 			builder := msgchain.Builder().Friend()
 			builder.Text("请输入完整参数 /explore [Group ID] [count]")

@@ -381,9 +381,9 @@ func (p *GroupDashboardPlugin) replyFriendText(b bot.Bot, userID message.QID, te
 	b.SendFriendMsg(userID, chain.Build())
 }
 
-// isAdmin 判断发送者是否为 bot.admin_id 配置的管理员。
+// isAdmin 判断发送者是否为 bot.admin_ids 配置的管理员（可配置多个）。
 func (p *GroupDashboardPlugin) isAdmin(userID message.QID) bool {
-	return p.SystemConfig.AdminId != "" && userID == p.SystemConfig.AdminId
+	return p.SystemConfig.IsAdmin(userID)
 }
 
 // handleAllStatus 管理员查看所有作用群的收集状态（isFriend=true 时回复私聊）。

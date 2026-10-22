@@ -211,7 +211,7 @@ func (p *GamesPlugin) startGuess(b bot.Bot, gid string, msg message.Message) {
 func (p *GamesPlugin) endGuess(b bot.Bot, group message.QID, gid string, msg message.Message) {
 	p.mu.Lock()
 	g, ok := p.guess[gid]
-	if ok && g.Starter != msg.Sender.UserId.String() && msg.Sender.UserId != p.SystemConfig.AdminId {
+	if ok && g.Starter != msg.Sender.UserId.String() && !p.SystemConfig.IsAdmin(msg.Sender.UserId) {
 		p.mu.Unlock()
 		p.reply(b, group, "只有发起者或管理员可以提前结束")
 		return
