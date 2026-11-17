@@ -86,7 +86,8 @@ func (p *ExamplePlugin) OnFriendMsg(ctx context.Context, b bot.Bot, cmd command.
 ```
 
 `ShowFor` 取值：`plugininfo.ShowForGroup`（群聊）| `plugininfo.ShowForFriend`（私聊）|
-`plugininfo.ShowForNone`（隐藏，如拦截器类插件）；**必须设置**，否则框架拒绝加载。
+`plugininfo.ShowForNone`（隐藏，如拦截器类插件）。它是位掩码，始终显式设置：零值虽然
+能加载，但插件不会出现在 `/help`（相当于隐藏）。
 
 ## 3. `plugin.json`（必填字段别漏）
 
@@ -185,8 +186,8 @@ if qb, ok := b.(bot.QQ); ok {
 }
 ```
 
-`bot.QQ` 还有：`SendFriendForwardMsg / SetMsgEmojiLike / SendGroupSign /
-GetForwardMsg / GetGroupUserInfo / GetGroupMemberList / GetFriendList / GetGroupList / GetAIChatacter / GetPrivateFileURL`。
+`bot.QQ` 还有：`SendFriendForwardMsg / SendGroupAIVoiceMsg / SetMsgEmojiLike / SendGroupSign /
+GetForwardMsg / GetGroupUserInfo / GetGroupMemberList / GetFriendList / GetGroupList / GetAICharacters / GetPrivateFileURL`。
 原则：**用到 QQ 专属能力 → `plugin.json` 的 `platforms` 写 `["qq"]`**（`antiwithdrawal` 范例）；
 **只用 5.1 通用能力 → `platforms` 全平台**（`dicegirl`/`eew` 范例）。
 
@@ -222,8 +223,10 @@ ConfigSchema() → DI 注入 → Start → StartCron → Awake → 事件循环�
 ```
 
 - `Start(ctx, cfg *viper.Viper)`：初始化（建集合、读配置、起后台 goroutine 如 eew 的推送循环）。
+  **注意 `Start` 的 `ctx` 在方法返回后会被 cancel**：常驻 goroutine 要自建 context，并在 `OnUnload` 里取消。
 - `StartCron(ctx, b, c)`：注册定时任务，`c.AddFunc("0 8 * * *", func(){...})`（cron 表达式；
-  表达式非法会返回 err，记日志并返回）。`b` 可在闭包里发消息（eew 范例）。
+  表达式非法会返回 err，记日志并返回）。`b` 可在闭包里发消息（eew 范例）。cron 回调没有 panic 恢复，
+  回调内用 `b.Go(...)` 包裹实际工作。
 - `Awake(ctx, b)`：全部插件 `Start` 完成后调用，适合打“就绪”日志/依赖别插件数据的初始化
   （`whitelist` 必须在 `Awake` 读拦截器名单——`Start` 按 Order 执行时对方还没初始化）。
 - `OnUnload(ctx, reason)`（可选接口 `plugin.UnloadEvent`）：卸载前清理钩子，每个插件最多一次。
@@ -235,7 +238,7 @@ ConfigSchema() → DI 注入 → Start → StartCron → Awake → 事件循环�
   - 钩子**可能与运行期事件并发执行**：实现需自行保证并发安全；清理后一般要置一个
     `closed atomic.Bool` 闸门，让事件处理/后台循环提前返回，避免清理后又被写回（见 groupdigest）。
   - 超时 1 分钟，出错/panic 只记日志、不阻断卸载；`ctx` 会取消，别做无限等待。
-  - **用到本接口必须把 `plugin.json` 的 `min_framework` 抬到含该 API 的版本**（当前为 `4.7.7`）。
+  - **用到本接口必须把 `plugin.json` 的 `min_framework` 抬到含该 API 的版本**（`UnloadEvent` 自 `4.7.7` 起提供）。
 - 注入字段（框架 DI 自动填，开箱即用）：
   - `p.Logger *slog.Logger`：结构化日志，`p.Logger.Info("...", "key", val)`。
   - `p.Storage`：缓存 KV + 队列（memory/redis），支持 TTL：`SetString(ctx,k,v)` /
@@ -269,11 +272,12 @@ func (p *MyPlugin) ConfigSchema() any { return &p.cfg } // 必须每次返回同
 - 框架启动时：反射 `cfg` 标签注册字段 → 缺失键写入默认值 → 面板按 `label/group/help` 渲染表单
   → `Start` 之前把值填进结构体，插件只读 `p.cfg` 字段即可（`dicegirl`/`eew` 范例）。
 - tag 说明：`cfg`（点分键，统一 `plugin.<id>.*`，小写）、`label`（表单名）、
-  `group`（表单分组，**一个插件只建一个 group、命名用插件名**，如 setu 全部 `group:"涩图"`、
-  eew 全部 `group:"地震预警"`——面板「配置管理」侧边栏按 group 聚合成目录项，拆成
-  "网络/展示/限流"等多个组会把侧边栏撑出一串碎条目）、
-  `help`（说明）、`default`（默认值）、`type`（`string/password/int/float/bool/text/strings/ints/select`，
-  不写按 Go 类型推断）、`options`（select 候选，逗号分隔）、`sensitive`（敏感字段面板掩码）。
+  `group`（表单分组，**一个插件只建一个顶层 group、命名用插件名**，如 setu 全部 `group:"涩图"`、
+  eew 全部 `group:"地震预警"`；字段多时用 `group:"地震预警.推送"` 两级写法，面板合为一张卡片分节展示——
+  拆成 "网络/展示/限流"等多个顶层组会把侧边栏撑出一串碎条目）、
+  `help`（说明）、`default`（默认值）、`type`（`string/password/int/float/bool/text/strings/ints/select/multiselect/slider`，
+  不写按 Go 类型推断）、`options`（select/multiselect 候选，逗号分隔）、
+  `min/max/step/ticks`（slider 用）、`sensitive`（敏感字段面板掩码）。
   Go 指针标量 = 可选字段（未配置保持 nil）。
 - **铁律**：`ConfigSchema()` 在 DI 之前调用，**不许用 `p.Logger/p.Storage` 等注入字段**，
   必须每次返回同一个指针（`return &p.cfg`）。键相同后注册覆盖先注册——别复用别插件的键前缀。
@@ -284,7 +288,13 @@ func (p *MyPlugin) ConfigSchema() any { return &p.cfg } // 必须每次返回同
   `OnGroupIncrease/OnGroupDecrease`（入群欢迎/退群）、`OnGroupBan/OnGroupAdmin/OnGroupUpload/
   OnFriendAdd/OnPoke/OnLuckyKing/OnHonor/OnGroupMsgEmojiLike/OnEssence/OnGroupCard`。
   参数结构体都在 `common/model/message`（如 `message.GroupRecallNotice`）。
-- `OnPanic(ctx, b, name, err)`：本插件 panic 后的回调（打日志/告警用，别指望恢复现场）。
+- `OnPanic(ctx, b, name, err)`：**仅 `b.Go` 协程** panic 后广播给所有插件（打日志/告警用，别指望恢复现场）；
+  普通事件回调 panic 由框架捕获后只记日志，不会触发 `OnPanic`。
+- 发送事件：`OnBeforeSendMsg`（返回 false 取消发送，可改写 `ev.Segments`/`ev.Forward`）与
+  `OnAfterSendMsg`（广播，成功/失败都触发）分别实现 `plugin.SendMsgInterceptor` / `plugin.SendMsgObserver`；
+  单次分发 10 秒，回调里再次发送不会递归触发。
+- 按钮回调：实现 `plugin.InteractionHandler` 的 `OnInteraction(ctx, b, ev)`，按 `Meta.CallbackData(载荷)` 路由；
+  `ev.AnswerText` 可给点击者提示。
 - `OnPlatformEvent(ctx, b, event)`（实现 `plugin.PlatformEventHandler` 接口）：
   收平台自有事件（飞书卡片回调等，`event.Data` 类型由适配器定，自行断言），经 `Platforms` 过滤后广播。
 - 后台推送型插件（eew 地震推送 / groupdigest 群刊）：`Start` 里起 goroutine + `context` 取消，
@@ -348,7 +358,7 @@ go test ./plugins/<id>/...
 | 拦截器 / 管理员鉴权 / Order 抢跑 | `plugins/whitelist/plugin.go` |
 | 后台推送 / 作用群配置 | `plugins/eew`、`plugins/groupdigest` |
 | 单测写法 | `plugins/dicegirl/plugin_test.go` |
-| 框架教程 | 插件系统概览 / 第一个插件 / 完整教程（见 README 相关链接） |
+| 框架教程 | AniaBot 仓库 `docs/plugin/`（概览 / 第一个插件 / 配置 / 生命周期 / 平台能力 / 完整教程） |
 
 ## 14. 常见坑（AI 高频犯错点）
 
@@ -359,9 +369,10 @@ go test ./plugins/<id>/...
 - 私聊回复目标是 `msg.Sender.UserId`，群聊是 `msg.GroupId`；群聊想 @ 对方用 `c.Mention(...)`。
 - `QID` 直接 `==` 比较；`message.FromString("123")` 会自动加 `qq:` 前缀，别手拼字符串。
 - `ConfigSchema` 返回 `&p.cfg` 同一指针；`Start` 里读 `p.cfg`，别再手写 `cfg.Get*`。
-- config 的 `group` 一个插件只能有一个、名字用插件名：侧边栏按 group 聚合，按主题拆组
-  （"登录/网络/限流…"）会在「配置管理」侧边栏产生一堆碎条目，与其他插件风格不一致。
+- config 的 `group` 一个插件只建一个**顶层**分组、名字用插件名；字段多时用 `父.子` 两级分组，
+  不要按主题拆成多个顶层组（"登录/网络/限流…"），否则「配置管理」侧边栏会一堆碎条目。
 - 拦截器插件 `Order` 设小值抢跑，但 `Start` 里读别插件的数据可能为空——放 `Awake` 里读。
-- 图片/文件 URL 3 分钟过期（rkey 签名），缓存消息重发要处理过期（抄 `antiwithdrawal`）。
-- 长耗时（下载/AI/轮询）别卡在 `OnGroupMsg` 里超过 5 分钟；常驻后台任务在 `Start` 起 goroutine，
-  退出时用 `ctx` 取消，别泄漏。
+- 图片/文件 URL 3 分钟过期（rkey 签名），缓存消息重发要处理过期（抄 `antiwithdrawal`）；
+  持久化历史里的媒体优先用 `bot.MediaRefresher` 续期。
+- 长耗时（下载/AI/轮询）别卡在 `OnGroupMsg` 里超过 5 分钟；常驻后台任务在 `Start` 里起 goroutine，
+  但要用自建 context 并在 `OnUnload` 取消（`Start` 的 ctx 返回后即失效），别泄漏。
